@@ -1,0 +1,14 @@
+{
+  "name": "jeff",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "A chatbot that cannot write. Pre-written lines, picked by TypeSafe Jev.",
+  "scripts": {
+    "test": "node test/safety.test.mjs && node test/decide.test.mjs && node test/bank.test.mjs",
+    "test:live": "node test/live.test.mjs --full"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
