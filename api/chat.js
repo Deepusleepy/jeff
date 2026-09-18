@@ -1,10 +1,11 @@
-// Vercel serverless function: POST /api/chat
+// Vercel serverless function (Node runtime): POST /api/chat
 // Body: { message: string, history?: [{user, jeff}] }
 // Returns: { reply, mode, serious, expr, mood, dot, score, beat, alts, nouls, latencyMs }
 //
 // The TypeSafe API key never leaves this function. The client never sees it.
 
 import { runEngineTurn, runnerUps } from "../lib/engine.js";
+import { IncomingMessage, ServerResponse } from "node:http";
 
 const MAX_MESSAGE_CHARS = 500;
 const MAX_BODY_CHARS = 4000;
@@ -30,7 +31,6 @@ function rateLimited(ip) {
   if (h.timestamps.length >= RATE.max || h.count >= RATE.daily) return true;
   h.timestamps.push(now);
   h.count++;
-  // keep the map bounded
   if (hits.size > 5000) hits.clear();
   return false;
 }
@@ -53,71 +53,90 @@ function corsHeaders(origin) {
   };
 }
 
-export default async function handler(request) {
+export default async function handler(req, res) {
   const t0 = Date.now();
-  const cors = corsHeaders(request.headers.get("origin"));
+  const cors = corsHeaders(req.headers.origin);
 
-  if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
-  if (request.method !== "POST") return json({ error: "Method not allowed" }, 405, cors);
+  const send = (obj, status) => {
+    res.statusCode = status;
+    for (const [k, v] of Object.entries(cors)) res.setHeader(k, v);
+    res.setHeader("Content-Type", "application/json");
+    res.end(JSON.stringify(obj));
+  };
 
-  const ip = request.headers.get("x-real-ip") ?? request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
-  if (rateLimited(ip)) return json({ error: "Slow down" }, 429, cors);
-
-  const apiKey = process.env.TYPESAFE_API_KEY;
-  if (!apiKey) return json({ error: "Server not configured" }, 500, cors);
-
-  // Reject oversized bodies before parsing anything.
-  const contentLength = Number(request.headers.get("content-length") ?? 0);
-  if (contentLength > MAX_BODY_CHARS) return json({ error: "Payload too large" }, 413, cors);
-
-  let body;
   try {
-    const raw = await request.text();
-    if (raw.length > MAX_BODY_CHARS) return json({ error: "Payload too large" }, 413, cors);
-    body = JSON.parse(raw);
-  } catch {
-    return json({ error: "Invalid JSON body" }, 400, cors);
-  }
+    if (req.method === "OPTIONS") { res.statusCode = 204; return res.end(); }
+    if (req.method !== "POST") return send({ error: "Method not allowed" }, 405);
 
-  const message = typeof body?.message === "string" ? body.message.slice(0, MAX_MESSAGE_CHARS) : "";
-  if (!message.trim()) return json({ error: "Empty message" }, 400, cors);
+    const ip =
+      req.headers["x-real-ip"] ??
+      (typeof req.headers["x-forwarded-for"] === "string"
+        ? req.headers["x-forwarded-for"].split(",")[0].trim()
+        : "unknown");
+    if (rateLimited(String(ip))) return send({ error: "Slow down" }, 429);
 
-  // History: last 4 turns, each field hard-capped, plain strings only.
-  const history = Array.isArray(body?.history)
-    ? body.history
-        .slice(-MAX_HISTORY_TURNS)
-        .map((h) => ({
-          user: String(h?.user ?? "").slice(0, MAX_HISTORY_FIELD_CHARS),
-          jeff: String(h?.jeff ?? "").slice(0, MAX_HISTORY_FIELD_CHARS),
-        }))
-        .filter((h) => h.user && h.jeff)
-    : [];
+    const apiKey = process.env.TYPESAFE_API_KEY;
+    if (!apiKey) return send({ error: "Server not configured" }, 500);
 
-  async function callJev(state, questions) {
-    let res;
-    try {
-      res = await fetch("https://api.typesafe.ai/v1/systemone", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ model: MODEL, state, questions }),
+    // Read the body with a hard cap before parsing anything.
+    const declared = Number(req.headers["content-length"] ?? 0);
+    if (declared > MAX_BODY_CHARS) return send({ error: "Payload too large" }, 413);
+
+    const raw = await new Promise((resolve, reject) => {
+      let size = 0;
+      const chunks = [];
+      req.on("data", (c) => {
+        size += c.length;
+        if (size > MAX_BODY_CHARS) { reject(new Error("Payload too large")); req.destroy(); return; }
+        chunks.push(c);
       });
-    } catch {
-      throw new Error("TypeSafe API unreachable");
-    }
-    if (!res.ok) {
-      // Log details server-side; never proxy upstream error bodies to the client.
-      const detail = await res.text().catch(() => "");
-      console.error(`TypeSafe API ${res.status}: ${detail.slice(0, 300)}`);
-      throw new Error(res.status === 429 ? "Rate limited" : `TypeSafe API error ${res.status}`);
-    }
-    return res.json();
-  }
+      req.on("end", () => resolve(Buffer.concat(chunks).toString("utf8")));
+      req.on("error", reject);
+    });
+    if (raw.length > MAX_BODY_CHARS) return send({ error: "Payload too large" }, 413);
 
-  try {
+    let body;
+    try { body = JSON.parse(raw); }
+    catch { return send({ error: "Invalid JSON body" }, 400); }
+
+    const message = typeof body?.message === "string" ? body.message.slice(0, MAX_MESSAGE_CHARS) : "";
+    if (!message.trim()) return send({ error: "Empty message" }, 400);
+
+    // History: last 4 turns, each field hard-capped, plain strings only.
+    const history = Array.isArray(body?.history)
+      ? body.history
+          .slice(-MAX_HISTORY_TURNS)
+          .map((h) => ({
+            user: String(h?.user ?? "").slice(0, MAX_HISTORY_FIELD_CHARS),
+            jeff: String(h?.jeff ?? "").slice(0, MAX_HISTORY_FIELD_CHARS),
+          }))
+          .filter((h) => h.user && h.jeff)
+      : [];
+
+    async function callJev(state, questions) {
+      let r;
+      try {
+        r = await fetch("https://api.typesafe.ai/v1/systemone", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ model: MODEL, state, questions }),
+        });
+      } catch {
+        throw new Error("TypeSafe API unreachable");
+      }
+      if (!r.ok) {
+        // Log details server-side; never proxy upstream error bodies to the client.
+        const detail = await r.text().catch(() => "");
+        console.error(`TypeSafe API ${r.status}: ${detail.slice(0, 300)}`);
+        throw new Error(r.status === 429 ? "Rate limited" : `TypeSafe API error ${r.status}`);
+      }
+      return r.json();
+    }
+
     const result = await runEngineTurn({ message, history, callJev });
     const { turn, meta, ranked, nouls, safetyNet, latencyMs, tokens } = result;
 
-    return json(
+    return send(
       {
         reply: turn.line.text,
         mode: turn.mode,
@@ -133,19 +152,11 @@ export default async function handler(request) {
         tokens: tokens ?? null,
         latencyMs,
       },
-      200,
-      cors
+      200
     );
   } catch (err) {
     console.error("engine error:", err?.message ?? err);
-    const status = err?.message === "Rate limited" ? 429 : 502;
-    return json({ error: err?.message ?? "Engine failure" }, status, cors);
+    const status = err?.message === "Payload too large" ? 413 : err?.message === "Rate limited" ? 429 : 502;
+    return send({ error: err?.message ?? "Engine failure" }, status);
   }
-}
-
-function json(obj, status, cors) {
-  return new Response(JSON.stringify(obj), {
-    status,
-    headers: { "Content-Type": "application/json", ...cors },
-  });
 }
