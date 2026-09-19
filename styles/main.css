@@ -148,7 +148,7 @@
     margin-bottom:26px;letter-spacing:.2px;
   }
   .bootline .caret{color:var(--cyan)}
-  #powerBtn.gone,#bootLine.gone{display:none}
+  #powerBtn.gone,#bootLine.gone,#warnText.gone{display:none}
   .rest{opacity:0;transform:translateY(8px);transition:opacity .5s,transform .5s;pointer-events:none}
   .rest.in{opacity:1;transform:none;pointer-events:auto}
   .landing h1{font-size:36px;font-weight:800;letter-spacing:-.8px;margin-bottom:30px}
