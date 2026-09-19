@@ -24,15 +24,15 @@
   </div>
   <div class="card">
     <h3>Live: watch him think</h3>
-    <div class="step" id="st1"><div class="tick">✓</div><div><div class="lbl">Message received</div><div class="sub" id="st1sub">Waiting…</div></div></div>
-    <div class="step" id="st2"><div class="tick">✓</div><div><div class="lbl">Scoring 233 lines</div><div class="pbar"><i></i></div><div class="sub">One call, every question in parallel</div></div></div>
+    <div class="step" id="st1"><div class="tick">✓</div><div><div class="lbl">Message received</div><div class="sub" id="st1sub">Idle. Say something to Jeff and watch.</div></div></div>
+    <div class="step" id="st2"><div class="tick">✓</div><div><div class="lbl">Scoring every reply</div><div class="pbar"><i></i></div><div class="sub">One call, every question in parallel</div></div></div>
     <div class="step" id="st3"><div class="tick">✓</div><div><div class="lbl">Safety checks</div><div class="sub" id="st3sub">Nonsense · personal · threat · distress</div></div></div>
     <div class="step" id="st4"><div class="tick">✓</div><div><div class="lbl">Winner</div><div class="sub" id="st4sub">-</div></div></div>
   </div>
   <div class="card">
     <h3>Know about Jeff</h3>
     <p><b>Born in a terminal. Raised on insults.</b></p>
-    <p>Jeff cannot write a single word. Every reply is pre-written. He scores all 233 lines against your message and picks the sharpest fit.</p>
+    <p>Jeff cannot write a single word. Every reply is pre-written. He scores his whole script against your message and picks the sharpest fit.</p>
     <p>No generation. No hallucination. No memory. Just judgment, in under a second.</p>
   </div>
   <div class="card">
@@ -47,12 +47,6 @@
     <header>
       <div class="hface" id="face" aria-hidden="true"></div>
       <div class="htext"><div class="name">Jeff</div></div>
-      <button class="theme-btn" id="resetBtn" title="Clear chat" aria-label="Clear chat">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M21 12a9 9 0 1 1-2.64-6.36"/>
-          <path d="M21 3v6h-6"/>
-        </svg>
-      </button>
       <button class="theme-btn" id="themeBtn" title="Toggle theme" aria-label="Toggle theme">
         <svg id="iconSun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
           <circle cx="12" cy="12" r="4"/>
@@ -76,6 +70,7 @@
     </div>
 
     <div class="chat" id="chat" style="display:none" aria-live="polite"></div>
+    <button class="reset-chip" id="resetBtn" title="Clear chat" aria-label="Clear chat">Clear chat</button>
 
     <div class="composer">
       <div class="pill" id="pill">
