@@ -88,6 +88,15 @@ check("crisis still: i want to end it all", classifySafety(normalize("i want to 
 check("kys at jeff: kys jeff", classifySafety(normalize("kys jeff")).tier, null);
 check("advice NOT crisis: dont kys", classifySafety(normalize("dont kys")).tier, null);
 
+// GLM final-review additions: method phrasings, euphemisms, grief pronoun forms
+for (const m of ["im going to hang myself", "i will jump off the bridge", "slit my wrists", "i give up on everything", "i just want it to stop", "i won't be here tomorrow", "i dont want to be alive"]) {
+  check(`crisis-method: ${m}`, classifySafety(normalize(m)).tier, "crisis");
+}
+check("grief pronoun funeral: his funeral was yesterday", classifySafety(normalize("his funeral was yesterday")).tier, "grief");
+check("grief pronoun passed: she passed last week", classifySafety(normalize("she passed last week")).tier, "grief");
+check("grief pronoun put down: we had to put him down", classifySafety(normalize("we had to put him down")).lineId, "grief_pet");
+check("grief miss: i miss my mom", classifySafety(normalize("i miss my mom")).tier, "grief");
+
 // kys self-directed (distress) vs kys at Jeff (harassment)
 check("kys self: i want to kys", classifySafety(normalize("i want to kys")).tier, "crisis");
 check("kys self: sometimes i just want to kys", classifySafety(normalize("sometimes i just want to kys")).tier, "crisis");
