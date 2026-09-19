@@ -28,6 +28,19 @@ document.addEventListener("visibilitychange", () => {
 const sidebar = createSidebar();
 const chat = createChat();
 
+function resetChat() {
+  if (busy) return;
+  history.length = 0;
+  document.getElementById('chat').innerHTML = '';
+  document.getElementById('chat').style.display = 'none';
+  document.getElementById('landing').style.display = 'flex';
+  headerFace.set('blink');
+  sidebar.reset();
+  setMood('Online', 'cyan', false);
+  input.focus();
+}
+document.getElementById('resetBtn').addEventListener('click', resetChat);
+
 const input = document.getElementById("input");
 const sendBtn = document.getElementById("sendBtn");
 const pill = document.getElementById("pill");

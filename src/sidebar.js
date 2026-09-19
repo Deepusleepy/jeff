@@ -69,5 +69,5 @@ export function createSidebar() {
       : `Safety net, no model call`;
   }
 
-  return { run, safety, winner };
+  return { run, safety, winner, reset };
 }
