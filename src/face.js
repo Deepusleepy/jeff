@@ -18,8 +18,34 @@ export function createFace(container) {
   const svg = container.querySelector("svg");
   const paint = () => { svg.dataset.e = state.expr; };
 
+  // Boot sequence: eyes power on, glance around, settle. Runs once per face.
+  function boot() {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      paint();
+      return;
+    }
+    const eyes = svg.querySelectorAll(".eye");
+    eyes.forEach((e) => (e.style.transform = "scaleY(0.04)"));
+    const seq = [
+      [180, () => eyes.forEach((e) => (e.style.transform = "scaleY(0.5)"))],
+      [240, () => eyes.forEach((e) => (e.style.transform = "scaleY(0.04)"))],
+      [420, () => eyes.forEach((e) => (e.style.transform = "scaleY(1)"))],
+      [650, () => eyes.forEach((e) => (e.style.transform = "translateX(-4px)"))],
+      [850, () => eyes.forEach((e) => (e.style.transform = "translateX(4px)"))],
+      [1050, () => eyes.forEach((e) => (e.style.transform = ""))],
+    ];
+    let last = 0;
+    seq.forEach(([ms, fn]) => {
+      setTimeout(fn, ms);
+      last = ms;
+    });
+    // keyframe animations restart after the transform inline styles clear
+    setTimeout(() => paint(), last + 60);
+  }
+
   return {
     set(expr) { state.expr = expr; paint(); },
+    boot,
     startIdle(cycle) {
       let i = 0;
       state.timer = setInterval(() => {

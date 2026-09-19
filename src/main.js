@@ -18,6 +18,20 @@ heroFace.startIdle(IDLE);
 headerFace.startIdle(IDLE);
 headerFace.set("blink"); heroFace.set("blink");
 
+// Boot-up entrance: once per browser session.
+let booted = false;
+try { booted = sessionStorage.getItem("jeff-booted") === "1"; } catch {}
+if (!booted) {
+  heroFace.setPaused(true);
+  headerFace.setPaused(true);
+  heroFace.boot();
+  setTimeout(() => {
+    heroFace.setPaused(false);
+    headerFace.setPaused(false);
+    try { sessionStorage.setItem("jeff-booted", "1"); } catch {}
+  }, 1300);
+}
+
 // Pause idle animations when the tab is hidden: zero background CPU.
 document.addEventListener("visibilitychange", () => {
   const paused = document.hidden;

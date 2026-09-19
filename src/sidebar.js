@@ -29,7 +29,7 @@ export function createSidebar() {
   document.getElementById("sbClose").addEventListener("click", () => sync(false));
   scrim.addEventListener("click", () => sync(false));
   window.addEventListener("resize", () => sync(sidebar.classList.contains("open")));
-  sync(true); // default open everywhere; the user can close it
+  sync(false); // default closed everywhere; the chip opens it
 
   function reset() {
     timers.forEach(clearTimeout); timers.length = 0;
