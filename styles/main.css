@@ -10,7 +10,7 @@
     --pill-bg:#161616;--pill-border:#272727;
     --card:#0b0b0b;--card-border:#1a1a1a;
     --pbar-bg:#1a1a1a;
-    --lbl:#d6d6da;--sub:#8d8d94;--cardtxt:#b4b4ba;--cardh:#8d8d94;
+    --lbl:#e4e4e7;--sub:#a1a1aa;--cardtxt:#c6c6cd;--cardh:#a1a1aa;
   }
   html[data-theme="light"]{
     --bg:#f4f4f5;--panel:#ffffff;
@@ -20,7 +20,7 @@
     --pill-bg:#ffffff;--pill-border:#e0e0e3;
     --card:#ffffff;--card-border:#e8e8eb;
     --pbar-bg:#e8e8eb;
-    --lbl:#3f3f46;--sub:#8d8d94;--cardtxt:#5f5f66;--cardh:#7c7c85;
+    --lbl:#27272a;--sub:#52525b;--cardtxt:#3f3f46;--cardh:#52525b;
   }
   *{margin:0;padding:0;box-sizing:border-box}
   html,body{height:100%}
@@ -106,7 +106,7 @@
   .avatar[data-e="serious"] .mouth{fill:#7a84b8}
   html[data-theme="light"] .avatar .mouth{fill:#7a7a85}
 
-  header{flex:0 0 auto;display:flex;align-items:center;gap:12px;padding:16px 8px 10px}
+  header{flex:0 0 auto;display:flex;align-items:center;gap:10px;padding:16px 8px 10px;flex-wrap:nowrap;min-width:0}
   .hface{width:46px;height:46px;flex:0 0 auto;display:flex;align-items:center;justify-content:center}
   .htext{display:flex;align-items:center}
   .htext .name{font-size:16px;font-weight:700;line-height:1}
