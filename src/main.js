@@ -22,27 +22,44 @@ headerFace.set("blink"); heroFace.set("blink");
 const powerBtn = document.getElementById("powerBtn");
 const bootLine = document.getElementById("bootLine");
 const rest = document.getElementById("rest");
+const header = document.querySelector("header");
+const openChip = document.getElementById("openChip");
+
+let powered = true;
+try { powered = sessionStorage.getItem("jeff-booted") === "1"; } catch {}
+
+function revealUI() {
+  header.classList.remove("pre-hide");
+  header.classList.add("pre-in");
+  openChip.classList.remove("pre-hide");
+  openChip.classList.add("pre-in");
+}
 
 function skipPower() {
   powerBtn.classList.add("gone");
   bootLine.classList.add("gone");
+  document.getElementById("warnText").classList.add("gone");
   rest.classList.add("in");
+  revealUI();
+  headerFace.set("blink");
+  try { sessionStorage.setItem("jeff-booted", "1"); } catch {}
 }
 
-if (!booted) {
+if (!powered) {
+  powered = false;
   heroFace.setPaused(true);
   headerFace.setPaused(true);
   heroFace.setOff();
   headerFace.set("blink");
-  let bootedNow = false;
 
   function powerOn() {
-    if (bootedNow) return;
-    bootedNow = true;
+    if (powered) return;
+    powered = true;
     heroFace.clearOff();
     heroFace.setPaused(false);
     headerFace.setPaused(false);
     heroFace.boot();
+    revealUI();
 
     // typed welcome, then reveal the landing
     const line = "Jeff online. Judging has resumed.";
@@ -54,16 +71,11 @@ if (!booted) {
       if (i >= line.length) {
         clearInterval(typer);
         setTimeout(skipPower, 700);
-        try { sessionStorage.setItem("jeff-booted", "1"); } catch {}
       }
     }, 34);
   }
 
   powerBtn.addEventListener("click", powerOn);
-  // pressing Enter also powers on
-  input.addEventListener("keydown", function onFirstEnter(e) {
-    if (!bootedNow && e.key === "Enter") { powerOn(); input.removeEventListener("keydown", onFirstEnter); }
-  }, { once: false });
 } else {
   skipPower();
 }
@@ -105,7 +117,7 @@ function setReady(ready) {
 
 async function send() {
   const message = input.value.trim();
-  if (!message || busy) return;
+  if (!message || busy || !powered) return;
   busy = true;
   input.value = "";
   setReady(false);

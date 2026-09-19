@@ -11,7 +11,7 @@
 </head>
 <body>
 
-<button class="open-chip hide" id="openChip">Watch Jeff think</button>
+<button class="open-chip hide pre-hide" id="openChip">Watch Jeff think</button>
 
 <div class="scrim" id="scrim"></div>
 <aside class="sidebar" id="sidebar" aria-label="Inside Jeff's head">
@@ -42,7 +42,7 @@
 
 <div class="main" id="main">
   <div class="app">
-    <header>
+    <header class="pre-hide">
       <div class="hface" id="face" aria-hidden="true"></div>
       <div class="htext"><div class="name">Jeff</div></div>
       <button class="theme-btn" id="resetBtn" title="Clear chat" aria-label="Clear chat" hidden>
@@ -64,6 +64,7 @@
 
     <div class="landing" id="landing">
       <div class="hero" id="heroFace"></div>
+      <div class="warn" id="warnText">Heed this warning: Jeff is a sassy, judgmental machine with zero manners. He will roast you. He cannot be nice. Are you sure you want to talk to it?</div>
       <button class="power" id="powerBtn" aria-label="Power Jeff on">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
           <path d="M12 2v8"/>
