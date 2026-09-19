@@ -18,6 +18,19 @@ export function createFace(container) {
   const svg = container.querySelector("svg");
   const paint = () => { svg.dataset.e = state.expr; };
 
+  // "off" state: eyes and mouth dimmed to a dark idle screen
+  function setOff() {
+    const eyes = svg.querySelectorAll(".eye");
+    const mouth = svg.querySelector(".mouth");
+    eyes.forEach((e) => (e.style.fill = "#12343b"));
+    if (mouth) mouth.style.fill = "transparent";
+  }
+  function clearOff() {
+    svg.querySelectorAll(".eye").forEach((e) => (e.style.fill = ""));
+    const mouth = svg.querySelector(".mouth");
+    if (mouth) mouth.style.fill = "";
+  }
+
   // Boot sequence: eyes power on, glance around, settle. Runs once per face.
   function boot() {
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
@@ -45,6 +58,8 @@ export function createFace(container) {
 
   return {
     set(expr) { state.expr = expr; paint(); },
+    setOff,
+    clearOff,
     boot,
     startIdle(cycle) {
       let i = 0;

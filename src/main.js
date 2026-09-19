@@ -18,18 +18,54 @@ heroFace.startIdle(IDLE);
 headerFace.startIdle(IDLE);
 headerFace.set("blink"); heroFace.set("blink");
 
-// Boot-up entrance: once per browser session.
-let booted = false;
-try { booted = sessionStorage.getItem("jeff-booted") === "1"; } catch {}
+// Power-on interaction: first visit of a session, the user turns Jeff on.
+const powerBtn = document.getElementById("powerBtn");
+const bootLine = document.getElementById("bootLine");
+const rest = document.getElementById("rest");
+
+function skipPower() {
+  powerBtn.classList.add("gone");
+  bootLine.classList.add("gone");
+  rest.classList.add("in");
+}
+
 if (!booted) {
   heroFace.setPaused(true);
   headerFace.setPaused(true);
-  heroFace.boot();
-  setTimeout(() => {
+  heroFace.setOff();
+  headerFace.set("blink");
+  let bootedNow = false;
+
+  function powerOn() {
+    if (bootedNow) return;
+    bootedNow = true;
+    heroFace.clearOff();
     heroFace.setPaused(false);
     headerFace.setPaused(false);
-    try { sessionStorage.setItem("jeff-booted", "1"); } catch {}
-  }, 1300);
+    heroFace.boot();
+
+    // typed welcome, then reveal the landing
+    const line = "Jeff online. Judging has resumed.";
+    let i = 0;
+    bootLine.innerHTML = '<span class="caret"></span>';
+    const typer = setInterval(() => {
+      i++;
+      bootLine.innerHTML = line.slice(0, i) + '<span class="caret">▍</span>';
+      if (i >= line.length) {
+        clearInterval(typer);
+        setTimeout(skipPower, 700);
+        try { sessionStorage.setItem("jeff-booted", "1"); } catch {}
+      }
+    }, 34);
+  }
+
+  powerBtn.addEventListener("click", powerOn);
+  // pressing Enter also powers on
+  input.addEventListener("keydown", function onFirstEnter(e) {
+    if (!bootedNow && e.key === "Enter") { powerOn(); input.removeEventListener("keydown", onFirstEnter); }
+  }, { once: false });
+} else {
+  skipPower();
 }
 
 // Pause idle animations when the tab is hidden: zero background CPU.
