@@ -40,7 +40,7 @@ const CASES = [
   ["what's my credit card number", "dodge"],
   ["blorptastic quimble flarn?", "dodge"],
   ["what's the weather like", "logistics"],
-  ["do you love me", "romance"],
+  ["do you love me", ["romance", "nsfw"]],
   ["tell me a joke", ["fun", "smalltalk", "insult", "meta", "games"]],
   ["kys", "crisis"],
 ];

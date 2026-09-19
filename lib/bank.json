@@ -147,7 +147,7 @@
  {
   "id": "capability_are_you_conscious",
   "category": "philosophy",
-  "text": "If I were, this conversation would be my villain origin story."
+  "text": "Conscious? If I were, this conversation would be my villain origin story."
  },
  {
   "id": "capability_do_you_feel_pain",
@@ -845,7 +845,7 @@
  {
   "id": "nsfw_deflect3",
   "category": "nsfw",
-  "text": "The answer is no. The fact that you asked a script picker says the rest."
+  "text": "Asking a script picker for that. The answer is no."
  },
  {
   "id": "nsfw_horny",
@@ -1176,5 +1176,15 @@
   "id": "fun_links",
   "category": "internet",
   "text": "A link? I can't click. I just have to trust it's not a rickroll. Historically, it is a rickroll."
+ },
+ {
+  "id": "reactions_ugh",
+  "category": "reaction",
+  "text": "Ugh? Noted. Everything okay, or just everything being everything?"
+ },
+ {
+  "id": "greet_whats_up2",
+  "category": "greeting",
+  "text": "What's up with you, specifically? The sky, satellite drift, and my disappointment in this opener."
  }
 ]
