@@ -49,8 +49,7 @@ if (!powered) {
   powered = false;
   heroFace.setPaused(true);
   headerFace.setPaused(true);
-  heroFace.setOff();
-  headerFace.set("blink");
+  heroFace.set("smug");
 
   function powerOn() {
     if (powered) return;

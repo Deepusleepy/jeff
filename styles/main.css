@@ -127,11 +127,11 @@
   .pre-hide{opacity:0;pointer-events:none}
   .pre-in{opacity:1;pointer-events:auto;transition:opacity .4s}
   .warn{
-    max-width:400px;text-align:center;
-    color:var(--dim);font-size:14px;line-height:1.6;
-    margin-bottom:22px;
+    max-width:420px;text-align:center;
+    color:var(--txt);font-size:19px;line-height:1.5;font-weight:600;
+    letter-spacing:.2px;
+    margin-bottom:24px;
   }
-  .warn b{color:var(--cyan);font-weight:600}
   .power{
     width:64px;height:64px;border-radius:50%;
     background:var(--card);border:1px solid var(--card-border);
