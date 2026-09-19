@@ -83,7 +83,7 @@
   .scrim.on{opacity:1;pointer-events:auto}
 
   .main{height:100dvh;display:flex;justify-content:center;transition:margin-left .28s cubic-bezier(.4,0,.2,1)}
-  .main.docked{margin-left:340px}
+  .main.docked{margin-left:min(340px, 38vw)}
   .app{width:100%;max-width:620px;height:100dvh;display:flex;flex-direction:column;margin:0 auto}
 
   /* ---------- face ---------- */

@@ -19,8 +19,9 @@ export function createSidebar() {
   function sync(open) {
     sidebar.classList.toggle("open", open);
     openChip.classList.toggle("hide", open);
-    if (open && isWide()) { main.classList.add("docked"); scrim.classList.remove("on"); }
-    else if (open) { main.classList.remove("docked"); scrim.classList.add("on"); }
+    // Dock at every width so the chat never slides under the sidebar.
+    // On narrow screens the chat column simply gets narrower.
+    if (open) { main.classList.add("docked"); scrim.classList.remove("on"); }
     else { main.classList.remove("docked"); scrim.classList.remove("on"); }
   }
 
