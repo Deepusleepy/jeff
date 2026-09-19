@@ -9,6 +9,8 @@ function apply(theme) {
   document.body.dataset.theme = theme;
   iconSun.style.display = theme === "light" ? "none" : "block";
   iconMoon.style.display = theme === "light" ? "block" : "none";
+  const meta = document.querySelector('meta[name="theme-color"]:not([media])');
+  if (meta) meta.setAttribute("content", theme === "light" ? "#f4f4f5" : "#0a0a0a");
 }
 
 export function initTheme() {
