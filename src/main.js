@@ -40,6 +40,8 @@ function skipPower() {
   bootLine.classList.add("gone");
   document.getElementById("warnText").classList.add("gone");
   rest.classList.add("in");
+  document.getElementById("composer").classList.remove("pre-hide");
+  document.getElementById("composer").classList.add("pre-in");
   revealUI();
   headerFace.set("blink");
   try { sessionStorage.setItem("jeff-booted", "1"); } catch {}
