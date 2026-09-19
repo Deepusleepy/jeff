@@ -126,11 +126,9 @@
   .hero{width:150px;height:150px;margin-bottom:14px}
   .landing h1{font-size:36px;font-weight:800;letter-spacing:-.8px;margin-bottom:30px}
   .landing h1 .ask{
-    font-family:"Snell Roundhand","Savoye LET","Apple Chancery","Segoe Script","Brush Script MT",cursive;
-    font-weight:400;
-    font-style:italic;
+    font-weight:300;
     color:var(--cyan);
-    margin-right:6px;
+    margin-right:10px;
   }
   .suggestions{display:flex;flex-wrap:wrap;justify-content:center;gap:10px;max-width:430px}
   .suggestions button{background:var(--card);border:1px solid var(--card-border);color:var(--dim);font:inherit;font-size:13.5px;padding:10px 16px;border-radius:999px;cursor:pointer;transition:color .15s,border-color .15s}
