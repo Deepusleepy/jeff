@@ -2,6 +2,7 @@
 // as production (lib/engine.js). Usage: TYPESAFE_API_KEY=... node test/live.test.mjs [--full]
 
 import { runEngineTurn } from "../lib/engine.js";
+import { MODEL } from "../lib/questions.js";
 import { readFileSync } from "node:fs";
 
 const key = process.env.TYPESAFE_API_KEY;
@@ -14,7 +15,7 @@ async function callJev(state, questions) {
   const res = await fetch("https://api.typesafe.ai/v1/systemone", {
     method: "POST",
     headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ model: "jev-latest", state, questions }),
+    body: JSON.stringify({ model: MODEL, state, questions }),
   });
   if (!res.ok) throw new Error(`API ${res.status}: ${(await res.text()).slice(0, 200)}`);
   return res.json();

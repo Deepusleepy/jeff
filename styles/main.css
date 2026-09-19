@@ -174,3 +174,7 @@
   .send.ready .s-mouth{fill:rgba(0,19,24,.6)}
   .send.squint .s-eye{transform:scaleY(.25)!important}
   .send.squint .s-mouth{transform:scaleY(2.2)!important}
+
+  @media (prefers-reduced-motion: reduce){
+    *,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}
+  }

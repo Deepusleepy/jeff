@@ -11,6 +11,7 @@ export async function askJeff(message, history) {
       message,
       history: history.slice(-MAX_HISTORY),
     }),
+    signal: AbortSignal.timeout(15000),
   });
   if (!res.ok) {
     let detail = "";

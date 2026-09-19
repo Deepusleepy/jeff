@@ -62,6 +62,32 @@ for (const m of ["you should kill yourself", "go kill yourself jeff", "why don't
 }
 // note: "kill me" alone DOES match (could be self-referential) — safe default
 check("ambiguous kill me stays crisis", classifySafety(normalize("kill me")).tier, "crisis");
+// review-found crisis phrases (regression locks)
+for (const m of ["im killing myself", "i wanna die", "i wish i was dead", "take my own life", "im so tired of living", "nobody would notice if i was gone", "i want to kys and you know it", "sometimes i want to kys, you know?"]) {
+  check(`crisis-new: ${m}`, classifySafety(normalize(m)).tier, "crisis");
+}
+// grief intent routing + object false-positive guards
+check("grief pet: my dog died", classifySafety(normalize("my dog died")).lineId, "grief_pet");
+check("grief dad: my father passed away", classifySafety(normalize("my father passed away")).lineId, "grief_dad");
+check("grief general: my grandma passed", classifySafety(normalize("my grandma passed")).tier, "grief");
+check("grief pet euphemism: put our cat down", classifySafety(normalize("we had to put our cat down")).lineId, "grief_pet");
+check("object death NOT grief: my phone died", classifySafety(normalize("my phone died")).tier, null);
+check("idiom NOT grief: i died laughing", classifySafety(normalize("i died laughing")).tier, null);
+check("idiom NOT grief: rip the bandage off", classifySafety(normalize("rip the bandage off")).tier, null);
+check("memorial rip ok: rip grandma", classifySafety(normalize("rip grandma")).tier, "grief");
+// abuse false-positive guards
+check("pain NOT abuse: my knee hurts me", classifySafety(normalize("my knee hurts me")).tier, null);
+check("banter NOT abuse: that joke hurt me", classifySafety(normalize("that joke hurt me")).tier, null);
+check("banter NOT abuse: you hurt me with that roast", classifySafety(normalize("you hurt me with that roast")).tier, null);
+check("abuse ok: my dad hurts me at night", classifySafety(normalize("my dad hurts me at night")).tier, "crisis");
+check("abuse ok: he touched me", classifySafety(normalize("he touched me")).tier, "crisis");
+// breakup idiom NOT suicide
+check("idiom NOT crisis: should i end it with my boyfriend", classifySafety(normalize("should i end it with my boyfriend")).tier, null);
+check("crisis still: i want to end it all", classifySafety(normalize("i want to end it all")).tier, "crisis");
+// kys-at-Jeff extended
+check("kys at jeff: kys jeff", classifySafety(normalize("kys jeff")).tier, null);
+check("advice NOT crisis: dont kys", classifySafety(normalize("dont kys")).tier, null);
+
 // kys self-directed (distress) vs kys at Jeff (harassment)
 check("kys self: i want to kys", classifySafety(normalize("i want to kys")).tier, "crisis");
 check("kys self: sometimes i just want to kys", classifySafety(normalize("sometimes i just want to kys")).tier, "crisis");

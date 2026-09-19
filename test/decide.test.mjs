@@ -3,7 +3,7 @@
 
 import { resolveTurn } from "../lib/decide.js";
 import { classifySafety, normalize } from "../lib/safety.js";
-import { REAL_LINES, DODGE_LINES } from "../lib/bank.js";
+import { REAL_LINES, DODGE_LINES, FOLLOWUP_LINES } from "../lib/bank.js";
 import assert from "node:assert";
 
 let passed = 0, failed = 0;
@@ -62,7 +62,7 @@ t = resolveTurn({ message: "my dad died", normalized: normalize("my dad died"), 
 check("safety net: grief", t.mode === "grief" && t.line.category === "grief");
 
 // followup pool path
-const FU = REAL_LINES.filter((l) => l.category === "followup");
+const FU = FOLLOWUP_LINES;
 // followup path: dodge lines not included in that request
 const fuAnswers = buildAnswers({});
 Object.keys(fuAnswers).forEach((k) => { if (k.startsWith("d")) delete fuAnswers[k]; });

@@ -5,14 +5,12 @@
 // The TypeSafe API key never leaves this function. The client never sees it.
 
 import { runEngineTurn, runnerUps } from "../lib/engine.js";
-import { IncomingMessage, ServerResponse } from "node:http";
+import { MODEL } from "../lib/questions.js";
 
 const MAX_MESSAGE_CHARS = 500;
 const MAX_BODY_CHARS = 4000;
 const MAX_HISTORY_TURNS = 4;
 const MAX_HISTORY_FIELD_CHARS = 250;
-
-const MODEL = "jev-latest";
 
 // Lightweight per-IP rate limit: 10 requests/min, 60/hour. In-memory, so it
 // resets on cold start and is per-instance; it stops casual abuse, not a
@@ -65,7 +63,11 @@ export default async function handler(req, res) {
   };
 
   try {
-    if (req.method === "OPTIONS") { res.statusCode = 204; return res.end(); }
+    if (req.method === "OPTIONS") {
+      res.statusCode = 204;
+      for (const [k, v] of Object.entries(cors)) res.setHeader(k, v);
+      return res.end();
+    }
     if (req.method !== "POST") return send({ error: "Method not allowed" }, 405);
 
     const ip =

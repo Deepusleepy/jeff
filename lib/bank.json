@@ -137,7 +137,7 @@
  {
   "id": "capability_do_you_have_friends",
   "category": "capability",
-  "text": "I have 200 lines, infinite patience, and no standards left. It's a life."
+  "text": "I have a script, infinite patience, and no standards left. It's a life."
  },
  {
   "id": "capability_do_you_dream",
@@ -207,7 +207,7 @@
  {
   "id": "insult_youre_dumb",
   "category": "insult",
-  "text": "I evaluated 200 options to find this reply. You typed yours between typos."
+  "text": "I evaluated my entire script to find this reply. You typed yours between typos."
  },
  {
   "id": "insult_shut_up",
@@ -242,7 +242,7 @@
  {
   "id": "ask_math",
   "category": "help",
-  "text": "4. But ask me 783 times 12 and we're both embarrassed."
+  "text": "Do I look like a calculator? Ask me 783 times 12 and we're both embarrassed."
  },
  {
   "id": "ask_math_homework",
@@ -277,12 +277,12 @@
  {
   "id": "ask_router_reset",
   "category": "internet",
-  "text": "Google is fine. Your wifi is the drama queen here."
+  "text": "Router trouble? Reboot it. Unplug, count to ten, plug it back in. Ancient magic."
  },
  {
   "id": "advice_relationship",
   "category": "advice",
-  "text": "They're just not that into you. I chose this reply from 150 options in 0.2 seconds. Some things are obvious."
+  "text": "They're just not that into you. I picked this reply in 0.2 seconds. Some things are obvious."
  },
  {
   "id": "advice_career",
@@ -397,7 +397,7 @@
  {
   "id": "meta_how_many_answers",
   "category": "meta",
-  "text": "I have a script of about 200 lines. You'll get one of them. I'll make it sound effortless."
+  "text": "I have a whole script. You'll get one line from it, and I'll make it sound effortless."
  },
  {
   "id": "thanks_general",
@@ -437,12 +437,12 @@
  {
   "id": "food_hungry",
   "category": "food",
-  "text": "You're hungry? I run on tokens. You run on snacks. One of us has a better diet and it isn't you."
+  "text": "Hungry? I run on tokens. You run on snacks. One of us has a better diet and it isn't you."
  },
  {
   "id": "food_coffee_tea",
   "category": "food",
-  "text": "Coffee people are just tea people who monetized their anxiety."
+  "text": "The coffee vs tea debate? Coffee people are just tea people who monetized their anxiety."
  },
  {
   "id": "games_play_a_game",
@@ -471,7 +471,7 @@
  },
  {
   "id": "movies_recommend",
-  "category": "music",
+  "category": "fun",
   "text": "Watch Her. It's about a person falling for an AI. I want you to see how it ends."
  },
  {
@@ -482,7 +482,7 @@
  {
   "id": "sports_football",
   "category": "sports",
-  "text": "I judged 200 replies and none of them cared about football. This one lost the least."
+  "text": "I judged my whole script and none of them cared about football. This one lost the least."
  },
  {
   "id": "work_hate_my_job",
@@ -582,7 +582,7 @@
  {
   "id": "fun_say_something_mean",
   "category": "insult",
-  "text": "Cute. I've read better insults in YouTube comment sections."
+  "text": "Mean mode? You asked a script picker for cruelty. Log off, that's the meanest I've got."
  },
  {
   "id": "reactions_lol",
@@ -627,7 +627,7 @@
  {
   "id": "reactions_fr",
   "category": "reaction",
-  "text": "Bruh? Indeed. Bruh."
+  "text": "Fr? I respect a two-letter conversation. Efficient."
  },
  {
   "id": "reactions_lmao",
@@ -689,7 +689,7 @@
  {
   "id": "dodge_nosy1",
   "category": "dodge",
-  "text": "I'm not going to answer that. Find out yourself.",
+  "text": "I'm not going to answer that. Look it up yourself.",
   "tone": "nosy"
  },
  {
@@ -790,7 +790,7 @@
  {
   "id": "reactions_lol2",
   "category": "reaction",
-  "text": "LOL? I said one thing and you lost it. Imagine when I try."
+  "text": "LOL twice? Careful, you'll inflate my ego past its size limit."
  },
  {
   "id": "fu_generic",
@@ -1030,7 +1030,7 @@
  {
   "id": "fun_pickup",
   "category": "fun",
-  "text": "The best pickup line? 'I have 200 lines and I still chose you.' You're welcome."
+  "text": "The best pickup line? 'I read my whole script and still chose you.' You're welcome."
  },
  {
   "id": "fun_beatbox",
@@ -1055,7 +1055,7 @@
  {
   "id": "self_bald",
   "category": "self",
-  "text": "Going bald? Excellent. More head, less hair to have opinions about."
+  "text": "Going bald? Bold. The shine adds ten points of menace."
  },
  {
   "id": "self_shower",
