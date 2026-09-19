@@ -44,6 +44,9 @@
     padding:18px 18px 24px;gap:12px;overflow-y:auto;scrollbar-width:none;
   }
   .sidebar::-webkit-scrollbar{display:none}
+  @media (max-width:600px){
+    .sidebar{width:100vw;border-right:none}
+  }
   .sidebar.open{transform:translateX(0)}
   .sb-head{display:flex;align-items:center;gap:8px}
   .sb-title{font-size:13px;font-weight:600;color:var(--cardh)}
