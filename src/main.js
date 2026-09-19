@@ -34,7 +34,7 @@ function resetChat() {
   document.getElementById('chat').innerHTML = '';
   document.getElementById('chat').style.display = 'none';
   document.getElementById('landing').style.display = 'flex';
-  document.getElementById('resetBtn').style.display = 'none';
+  document.getElementById('resetBtn').hidden = true;
   headerFace.set('blink');
   sidebar.reset();
   setMood('Online', 'cyan', false);
@@ -62,7 +62,7 @@ async function send() {
   sendBtn.classList.remove("squint");
 
   chat.activate();
-  document.getElementById('resetBtn').style.display = 'block';
+  document.getElementById('resetBtn').hidden = false;
   chat.add("user", message);
 
   const faceExprBefore = "think";

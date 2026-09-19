@@ -47,6 +47,12 @@
     <header>
       <div class="hface" id="face" aria-hidden="true"></div>
       <div class="htext"><div class="name">Jeff</div></div>
+      <button class="theme-btn" id="resetBtn" title="Clear chat" aria-label="Clear chat" style="display:none">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 12a9 9 0 1 1-2.64-6.36"/>
+          <path d="M21 3v6h-6"/>
+        </svg>
+      </button>
       <button class="theme-btn" id="themeBtn" title="Toggle theme" aria-label="Toggle theme">
         <svg id="iconSun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
           <circle cx="12" cy="12" r="4"/>
@@ -70,7 +76,6 @@
     </div>
 
     <div class="chat" id="chat" style="display:none" aria-live="polite"></div>
-    <button class="reset-chip" id="resetBtn" title="Clear chat" aria-label="Clear chat">Clear chat</button>
 
     <div class="composer">
       <div class="pill" id="pill">
