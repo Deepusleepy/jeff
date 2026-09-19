@@ -61,7 +61,7 @@ Layered defense over the catastrophic class, regex first, model second:
 ```
 
 ## Bank
-- 233 lines in lib/bank.json: real lines across 24 categories + 13 dodge lines with tone tags + dedicated crisis/grief/threat/refuse safety lines.
+- 236 lines in lib/bank.json: real lines across 24 categories + 13 dodge lines with tone tags + dedicated crisis/grief/threat/refuse safety lines.
 - Crisis/grief lines are deliberately STRAIGHT (no jokes), anchored to their topic ("thoughts of ending your life", "losing someone you love") so they only fire on-message.
 - Learned: crisis/grief/threat lines are super-stimuli — they fit everything sad. The margin rule (+0.25 over plain empathy) plus regex guards keeps them in their lane.
 - Anchor words matter: lines that keep winning contests they shouldn't need their topic named in the text ("You're drunk?", "Vampire boyfriend?", "Politics?").

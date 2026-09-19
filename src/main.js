@@ -100,7 +100,7 @@ function resetChat() {
   document.getElementById('resetBtn').hidden = true;
   headerFace.set('blink');
   sidebar.reset();
-  setMood('Online', 'cyan', false);
+  chat.setMood('Online', 'cyan', false);
   input.focus();
 }
 document.getElementById('resetBtn').addEventListener('click', resetChat);

@@ -1186,5 +1186,10 @@
   "id": "greet_whats_up2",
   "category": "greeting",
   "text": "What's up with you, specifically? The sky, satellite drift, and my disappointment in this opener."
+ },
+ {
+  "id": "grief_mom",
+  "category": "grief",
+  "text": "I'm so sorry about your mom. No words really fit. Be gentle with yourself tonight."
  }
 ]

@@ -13,7 +13,7 @@ One turn, one Jev call:
 1. Safety nets (deterministic regexes) check for crisis, grief, and harassment
    first. Crisis and grief messages get straight, serious pre-written answers
    with no model call at all.
-2. Otherwise every line in the bank (233) is scored against the message in a
+2. Otherwise every line in the bank (236) is scored against the message in a
    single parallel Jev request, plus four yes/no checks: nonsense, personal
    question, distress, threat.
 3. The decision cascade picks the winner: dodge on nonsense or low fit,
@@ -31,7 +31,7 @@ Full design and threshold history: [docs/FINAL_SPEC.md](docs/FINAL_SPEC.md).
     src/                frontend modules (entry: src/main.js)
     api/chat.js         Vercel serverless function, holds the API key
     lib/                engine shared by api and tests (bank, safety, decide)
-    lib/bank.json       the 233 pre-written lines
+    lib/bank.json       the 236 pre-written lines
     test/               safety + decision unit tests, live API tests
     docs/               design spec
 
