@@ -75,7 +75,7 @@ export default async function handler(req, res) {
       (typeof req.headers["x-forwarded-for"] === "string"
         ? req.headers["x-forwarded-for"].split(",")[0].trim()
         : "unknown");
-    if (rateLimited(String(ip))) return send({ error: "Slow down" }, 429);
+    if (rateLimited(String(ip))) return send({ error: "Slow down. Jeff is napping. Try again in a minute.", retryAfter: 60 }, 429);
 
     const apiKey = process.env.TYPESAFE_API_KEY;
     if (!apiKey) return send({ error: "Server not configured" }, 500);
