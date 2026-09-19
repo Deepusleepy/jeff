@@ -37,7 +37,7 @@ export function createSidebar() {
       const bar = s.querySelector(".pbar i");
       if (bar) bar.style.width = "0%";
     });
-    subs.received.textContent = "Waiting…";
+    subs.received.textContent = "Idle. Say something to Jeff and watch.";
     subs.safety.textContent = "Nonsense · personal · threat · distress";
     subs.winner.textContent = "-";
   }
