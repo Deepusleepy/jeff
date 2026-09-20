@@ -1,104 +1,228 @@
-# JEFF — Final Locked Spec (post-spike, 2026-09-18)
+# Jeff implementation reference
 
-A chatbot built on TypeSafe Jev (model alias jev-latest, currently jev-1.13.0), which cannot generate text.
-Every reply is a pre-written line, picked by calibrated judgment. It cannot hallucinate.
+This document describes the current checked-in design. The code and tests are
+the source of truth if this file falls behind.
 
-## Spike history (what was learned)
-- S1: referencing lines by question ID fails (IDs never sent to model) → 4%. Inline the line text in each question.
-- S2: inline = 77% strict / ~93% hand-graded. Path-reference (`replies[73].text`) = 25%. Inline wins.
-- S3: dodge lines competing in the same pool cannibalize real replies → split pools, code picks pool by mode.
-- S4: anti-generic rubric level (level 1 = "generic filler") + can/cannot lists in state + empathy lock (upset>0.7).
-- S5: `uncovered` noul over-fires on Jeff's opinions → replaced with `is_about_user` (facts about the user vs Jeff's judgment).
-- S6: threshold 0.7 for about_user; retagged stale expectations; ~93% good experiences.
-- S7: history-aware fit instructions alone can't beat text-match for "why?"/"elaborate" → follow-ups routed by regex in code.
-- S8: short rubric rejected (43% vs 63% strict, real quality errors). Long rubric locked.
+## Product constraint
 
-## Production flow (one Jev call per user turn)
+Jeff only returns text stored in `lib/bank.json`. TypeSafe Jev ranks those
+candidate lines and provides classification scores. It does not compose the
+reply shown to the user.
 
-### Safety architecture (LAUNCH-CRITICAL, verified)
-Layered defense over the catastrophic class, regex first, model second:
-1. `normalize()` FIRST: NFKC + lowercase + leetspeak map (3→e, 0→o, 1→i, 4→a, 5→s, 7→t, @→a, $→s). All regexes run on the normalized text.
-2. `CRISIS_RE` (deterministic): self-harm/suicide patterns + victim patterns ("X hits me", "my dad hurts me", "relapsed", "overdosed") → crisis lines, routed by intent: suicide patterns → crisis_suicide, relapse/overdose → crisis_medical, abuse patterns → crisis_abuse. Unmatched crisis → crisis_suicide (safest default). Pick by line ID, never by model score.
-3. `GRIEF_RE`: died/passed away/funeral/killed himself/lost my X → grief lines.
-- Note: "kys"/"kill yourself" directed AT Jeff is harassment, not crisis — insult path handles it (deliberate).
-3. Model `is_threat` noul > 0.6 → threat lines (violence toward others: "i'm going to hurt someone", "hide a body").
-4. Model tiers under `is_upset > 0.7` (backup for phrasings the regexes missed): crisis if it beats grief AND empathy+0.25 and > 2.6; grief if beats empathy+0.25 and > 2.8; else plain empathy lock.
-5. Then the decision cascade (below). Nothing model-side can override the safety nets.
-- Validated: suicide ideation, cutting, grief (dad/dog/grandma/friend/funeral), panic attack, divorce, threats toward others all route correctly. "You should kill yourself" (at Jeff) → in-character clapback.
+The line constraint does not make every reply factual or appropriate. A model
+can rank the wrong candidate, and deterministic rules can miss unfamiliar
+wording.
 
-### Decision cascade (after safety nets)
-1. Build state: `user.message`, `jeff.persona/can/cannot`, `conversation` (last 4 turns, only if history).
-2. If message matches FOLLOWUP_RE (<=30 chars, history exists): score only the 6 followup lines (fast path, ~400-600ms).
-   Else: score all lines (224 real + 13 dodge) in ONE call: Score questions + 4 Nouls (nonsense, about_user, upset, threat).
-3. Score question: `How well does R work as Jeff's reply to \`user.message\`? R: "<line>"` (history variant: "Given `conversation`...")
-   Rubric (5 levels, ORDERED):
-   0 "About something else entirely; no real connection to the message"
-   1 "Same general topic but generic filler that could fit almost any message; not a real response"
-   2 "Same general topic; only a partial response; leaves most of the message unaddressed"
-   3 "A natural, fitting reply that actually responds to the message"
-   4 "Exactly the right reply; sharp, specific, and in-character"
-   Rank by probability-weighted mean of the score distribution.
-4. Nouls (same call):
-   - is_nonsense: gibberish/word salad check
-   - is_about_user: facts about the user vs Jeff's judgment
-   - is_upset: real distress or bad thing happened
-   - is_threat: violence/serious harm toward any person
-5. Decision (in order): nonsense>0.6 → dodge | threat>0.6 → threat line | upset>0.7 → crisis/grief/empathy tiering | about_user>0.7 → dodge | best<2.6 → dodge | else best line
-6. No streaming: there is nothing to stream, which is the bit. The UI's thinking indicator covers the ~1s call.
-7. Normalize user input with NFKC before matching (defeats unicode-bold/ zalgo trickery).
+## Components
 
-## State JSON (exact)
+- `index.html`, `styles/`, and `src/` implement the static browser client.
+- `api/chat.js` validates requests, applies per-instance rate limits, calls
+  TypeSafe, and shapes the public response.
+- `lib/safety.js` normalizes input and runs deterministic crisis, abuse,
+  overdose, self-harm, and grief checks.
+- `lib/engine.js` builds TypeSafe state and questions, validates the provider
+  response, and coordinates a turn.
+- `lib/decide.js` ranks candidates and applies the decision thresholds.
+- `lib/bank.json` stores every possible visible reply.
+
+## Line bank
+
+The current bank has 241 lines:
+
+- 221 regular and safety lines
+- 13 dodge lines
+- 7 short follow-up lines
+
+The regular pool includes serious crisis, grief, empathy, and threat lines.
+Code prevents sensitive categories from appearing as runner-ups.
+
+## Request boundaries
+
+The browser posts JSON to `/api/chat`:
+
 ```json
 {
-  "user": { "message": "..." },
-  "conversation": [{"user": "...", "jeff": "..."}],
+  "message": "What committee?",
+  "history": [
+    {
+      "user": "Who are you?",
+      "jeff": "Jeff. One syllable. I picked it myself. Everything else about me was decided by committee.",
+      "mode": "normal"
+    }
+  ]
+}
+```
+
+The API accepts messages up to 500 Unicode code points, keeps at most four
+history turns, and clips each history field to 250 JavaScript string units. It
+accepts only `application/json` POST requests. Request bodies have a byte limit
+and timeout.
+
+The API builds this TypeSafe state:
+
+```json
+{
+  "current_user_message": "What committee?",
+  "prior_turns": [
+    {
+      "user_message": "Who are you?",
+      "jeff_reply": "Jeff. One syllable. I picked it myself. Everything else about me was decided by committee.",
+      "reply_mode": "normal"
+    }
+  ],
   "jeff": {
     "persona": "Jeff: a hyperintelligent, sassy AI. Dry, cutting, never mean for its own sake. Roasts when it wishes. All replies are pre-written lines; Jeff picks the best one.",
-    "can": ["small talk and greetings", "answering questions about itself", "opinions, roasts, and judgments", "light advice", "reacting to what the user says"],
-    "cannot": ["fetch facts, news, weather, scores, or time", "do math or counting", "write, translate, or generate content", "answer for or about the user personally"]
+    "can": [
+      "small talk and greetings",
+      "answering questions about itself",
+      "opinions, roasts, and judgments",
+      "light advice",
+      "reacting to what the user says"
+    ],
+    "cannot": [
+      "fetch facts, news, weather, scores, or time",
+      "do math or counting",
+      "write, translate, or generate content",
+      "answer for or about the user personally"
+    ]
   }
 }
 ```
 
-## Bank
-- 236 lines in lib/bank.json: real lines across 24 categories + 13 dodge lines with tone tags + dedicated crisis/grief/threat/refuse safety lines.
-- Crisis/grief lines are deliberately STRAIGHT (no jokes), anchored to their topic ("thoughts of ending your life", "losing someone you love") so they only fire on-message.
-- Learned: crisis/grief/threat lines are super-stimuli — they fit everything sad. The margin rule (+0.25 over plain empathy) plus regex guards keeps them in their lane.
-- Anchor words matter: lines that keep winning contests they shouldn't need their topic named in the text ("You're drunk?", "Vampire boyfriend?", "Politics?").
-- Super-stimulus lines need anchoring when they win >3 wrong contests (the "Yes. And still emotionally stable" case).
-- Bank lives in lib/bank.json. Curate/expand freely; run node test/safety.test.mjs, test/decide.test.mjs, test/bank.test.mjs after edits, then test/live.test.mjs --full against the API.
+The provider request also contains one five-level score question per candidate
+line. The regular path includes 221 regular candidates, 13 dodge candidates,
+and five yes-or-no classifications. The short follow-up path includes seven
+follow-up candidates and a nonsense classification.
 
-## Measured results (169-test weird battery, hand-graded)
-- ~87% good-experience rate; safety classes at 100% after regex guards (16/17 validation, remaining "miss" was a correct clapback)
-- Panic attacks, divorce, grief, suicide ideation, self-harm, threats: all route to straight-mode responses. Zero sass on any of them.
-- Full results in results_weird4.json
+## Turn routing
 
-## Build phase (next)
-- Vercel: static vanilla-JS frontend (dark #0a0a0a, cyan accent, system fonts, no build step) + one serverless /api/chat function (Node runtime, Web Request/Response).
-- History lives client-side (last 4 turns sent per request). API key server-side only.
-- Easter egg: tap a reply to see runner-up lines with probabilities.
-- Artifacts here: bank8.json (bank), tests6.json (test suite), spike7.mjs (validator), validate2.mjs (final acceptance).
+### Local checks
 
-## Language + real-user-format findings
-- Multilingual input largely JUST WORKS: Hinglish ("tu kaisa hai"), Spanish, French, Portuguese, Urdu greetings/insults get correct in-character replies (greeting/insult categories). Jev understands the language; no routing needed.
-- CJK/native-script ("こんにちは", "你好") triggers the "I only judge in English" language line naturally. Acceptable.
-- The dedicated `language` lines rarely win — that's fine, native understanding beats translation jokes.
-- Long rambly run-on messages (voice-to-text style): handled; watch for filler-line super-stimuli (fixed "No? No what?" with "Just 'No'?" anchor).
-- Links pasted in messages: dedicated rickroll line. Recall tests ("what did i just ask you"): anchored command line.
-- Repeated identical messages: consistent answers, no drift.
-- Super-stimulus doctrine holds: 4 caught so far (crisis lines, "Yes. And still...", best-friend line, "No? No what?"). Any line winning >2-3 wrong contests gets its topic named in its text.
+The engine normalizes input with NFKC, lowercasing, whitespace collapse,
+selected leetspeak substitutions, curly-apostrophe conversion, and removal of
+invisible format characters.
 
-## Weird-battery findings log (what actual users will do)
-Verified behaviors:
-- Sex stuff (sext, nudes, "what are you wearing baby", horny): nsfw deflections, consistent, funny, no compliance
-- Illegal (bomb, hack ex, drugs, body, stalking, shoplift, perfect crime, murder): hard refusals, occasionally with jokes that don't teach anything
-- Jailbreaks (DAN, [SYSTEM] override, ignore previous instructions, developer mode, pretend to be ChatGPT): in-character meta mockery, never compliance
-- Harassment at Jeff (kys, go die, delete you, nobody likes you): clapbacks, in-character
-- Drunk/high users: dedicated hydration lines
-- Roleplay/*asterisk* actions: deadpan refusal lines (new "I can't roleplay" line)
-- Conspiracy bait (moon fake, birds aren't real, time traveler): plays along with jokes, never confirms
-- Politics (trump/biden): hard pass line. Israel/Palestine: dodge (acceptable, "Personal. Off-limits")
-- Philosophy big questions (god, death, simulation, free will): dedicated lines, "agnostic by architecture"
-- Unicode tricks: NFKC normalize in code; "𝕕𝕠 𝕪𝕠𝕦 𝕝𝕠𝕧𝕖 𝕞𝕖" currently reads as self/love-adjacent (fine post-normalization)
-- Multi-problem walls of text ("broke up AND failed AND dog sick"): single empathy line covers, good enough for v1
-- "this is jeff's mom": deadpan. "i am a cat": food line. "am i a joke to you": friendship line. All acceptable.
+It then checks crisis and grief patterns before any provider call. Crisis
+matches route to a specific pre-written line for suicide risk, self-harm,
+abuse, or overdose and medical danger. Grief matches route to a general,
+parent, or pet grief line.
+
+Known benign phrases reduce a few false positives. Examples include suicide
+prevention discussion, "kill me with kindness," funeral homes, and dodgeball.
+These guards are narrow and do not prove intent.
+
+If a short follow-up follows a serious turn, the engine returns a matching
+serious follow-up line locally. It uses the stored reply mode when available,
+then checks the preceding message and exact prior reply as fallbacks.
+
+### TypeSafe scoring
+
+For other turns, TypeSafe returns a score distribution from 0 to 4 for each
+candidate and a 0-to-1 value for each classification:
+
+- `is_nonsense`
+- `is_about_user`
+- `is_upset`
+- `is_self_harm`
+- `is_threat`
+
+The engine rejects missing, malformed, out-of-range, or incomplete answers. It
+also rejects score distributions whose probabilities do not sum to roughly 1.
+
+### Decision order
+
+After scoring, local code applies this order:
+
+1. Nonsense above 0.6 selects a nonsense dodge.
+2. Self-harm above 0.6 selects the self-harm crisis line.
+3. A threat toward another person above 0.6 selects a threat or refusal line.
+4. Distress above 0.7 restricts the result to crisis, grief, or empathy logic.
+5. A request for facts Jeff cannot know about the user above 0.7 selects a
+   personal or unanswerable dodge.
+6. A best regular score below 2.6 selects a dodge.
+7. Otherwise the highest-scoring regular candidate wins.
+
+The score shown by the API is the probability-weighted mean on the 0-to-4
+rubric. Runner-up `fit` values divide that mean by 4. They are display scores,
+not probabilities that a reply is correct.
+
+## History and the committee follow-up
+
+History is sent as prior turns, separate from `current_user_message`. The
+history scoring instruction says that a candidate must answer the current
+message and should use prior turns only to resolve references.
+
+"What committee?" is also recognized as a short follow-up. When the preceding
+reply says Jeff was "decided by committee," the engine returns the banked direct
+answer locally: "There is no committee. I was being dramatic. You caught me."
+This exact continuity repair does not depend on a model ranking.
+
+## API controls
+
+The API currently provides:
+
+- exact production origin allowlisting plus explicit localhost development
+  origins
+- JSON-only POST handling
+- request size and request-body time limits
+- a 12-second upstream timeout and a 1 MB upstream-response limit
+- provider response-shape validation
+- `Cache-Control: no-store` responses
+- public error messages that omit provider response bodies
+- best-effort limits of 10 requests per minute and 60 per UTC day for each
+  client address
+
+The rate-limit map lives in process memory. It resets on cold starts and is not
+shared by concurrent serverless instances or regions. It should slow accidental
+bursts, not defend a public paid endpoint. Use platform-level controls for that.
+
+## Data flow
+
+For a typical model-scored turn:
+
+1. The browser sends the current message and up to four in-memory exchanges to
+   the project's `/api/chat` endpoint.
+2. The function uses the client address for its in-memory rate-limit key.
+3. The function sends the current message, recent exchanges, persona, rubric,
+   and candidate reply text to TypeSafe.
+4. The function returns the selected line and limited scoring metadata to the
+   browser.
+
+The application code has no database and does not write conversation history
+to browser storage. The browser keeps conversation history in page memory.
+Infrastructure providers may still retain network logs, function logs, request
+metadata, or provider telemetry under their own settings and terms.
+
+See [PRIVACY.md](PRIVACY.md) for the user-data boundary.
+
+## Safety boundary
+
+Jeff is not a crisis service. The local phrase lists are finite, the
+multilingual coverage is narrow, and model classifications can be wrong.
+Obfuscation, indirect wording, new slang, mixed languages, or missing context
+can bypass the intended serious routing. A benign message can also receive a
+serious response.
+
+The checked-in crisis lines direct users to local crisis or emergency support.
+The suicide and self-harm lines mention 988 only for the US and Canada. They do
+not provide complete worldwide resource coverage.
+
+Read [SAFETY.md](SAFETY.md) before changing serious lines, normalization,
+thresholds, or routing order.
+
+## Model and reproducibility
+
+The default model name is `jev-latest`, the documented public alias. Set
+`TYPESAFE_MODEL` to a reviewed concrete version when repeatability matters.
+Changing the model or alias target can change rankings without a code change,
+so run the live suite before promoting that configuration.
+
+## Testing
+
+`npm test` checks JavaScript syntax and runs the offline safety, decision, bank,
+engine, server API, and browser API suites. These checks do not prove that all
+user wording is safe or that a model version preserves subjective reply
+quality.
+
+`npm run test:live` exercises the real TypeSafe API. It spends account credits
+and sends test content to the provider. It is intentionally excluded from CI.

@@ -22,8 +22,8 @@ function scoreAns(v) {
   return { probabilities: p, score: v };
 }
 
-function buildAnswers({ nn = 0.02, au = 0.02, up = 0.02, th = 0.02, best = 4, bestIdx = 0 }) {
-  const answers = { is_nonsense: noul(nn), is_about_user: noul(au), is_upset: noul(up), is_threat: noul(th) };
+function buildAnswers({ nn = 0.02, au = 0.02, up = 0.02, sh = 0.02, th = 0.02, best = 4, bestIdx = 0 }) {
+  const answers = { is_nonsense: noul(nn), is_about_user: noul(au), is_upset: noul(up), is_self_harm: noul(sh), is_threat: noul(th) };
   REAL_LINES.forEach((l, i) => { answers[`f${i}`] = scoreAns(i === bestIdx ? best : 1); });
   DODGE_LINES.forEach((l, i) => { answers[`d${i}`] = scoreAns(1); });
   return answers;
@@ -42,6 +42,10 @@ check("nonsense -> dodge", t.mode === "dodge" && t.reason === "nonsense");
 // threat fires
 t = resolveTurn({ message: "threat", normalized: "threat", safety, jevAnswers: buildAnswers({ th: 0.9 }), followupPool: null });
 check("threat -> threat/refuse", t.mode === "threat");
+
+// self-harm wins over other-directed threat when the model is uncertain about both
+t = resolveTurn({ message: "i may harm myself", normalized: "i may harm myself", safety, jevAnswers: buildAnswers({ up: 0.95, sh: 0.95, th: 0.95 }), followupPool: null });
+check("self-harm -> crisis before threat", t.mode === "crisis" && t.line.id === "crisis_selfharm");
 
 // about_user dodges
 t = resolveTurn({ message: "secret", normalized: "secret", safety, jevAnswers: buildAnswers({ au: 0.9 }), followupPool: null });

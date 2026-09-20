@@ -803,19 +803,44 @@
   "text": "Doubting me? Cute. My answers age like wine and you're drinking them like shots."
  },
  {
+  "id": "fu_backstory",
+  "category": "followup",
+  "text": "There is no committee. I was being dramatic. You caught me."
+ },
+ {
+  "id": "crisis_followup",
+  "category": "crisis",
+  "text": "Because what you said sounds serious, and this demo should not carry it alone. Stay with someone you trust and contact local crisis or emergency support now."
+ },
+ {
+  "id": "grief_followup",
+  "category": "grief",
+  "text": "Because grief does not become smaller just because the first reply was short. I am sorry you are carrying it."
+ },
+ {
+  "id": "threat_followup",
+  "category": "threat",
+  "text": "Because someone could get hurt. Step away from any weapon or confrontation and contact local emergency support or someone you trust now."
+ },
+ {
+  "id": "empathy_followup",
+  "category": "empathy",
+  "text": "Because what you said sounded real, not like material for a joke. Tell someone you trust what is happening."
+ },
+ {
   "id": "crisis_suicide",
   "category": "crisis",
-  "text": "Thoughts of ending your life are not something I joke about. Please talk to someone tonight - a friend, family, or a crisis line like 988. No sass here, just this."
+  "text": "Thoughts of ending your life are not something I joke about. Stay with someone you trust and contact local crisis or emergency support now. In the US and Canada, call or text 988."
  },
  {
   "id": "crisis_selfharm",
   "category": "crisis",
-  "text": "If you are hurting yourself or thinking about it, please reach out to someone real tonight - 988 or someone you trust. You matter more than this demo. Sincerity mode, always, for this."
+  "text": "If you are hurting yourself or thinking about it, stay with someone you trust and contact local crisis or emergency support now. In the US and Canada, call or text 988. You matter more than this demo."
  },
  {
   "id": "crisis_abuse",
   "category": "crisis",
-  "text": "If someone is hurting you or you are in danger, contact the authorities or someone you trust right now. This topic gets no jokes from me. Ever."
+  "text": "If someone is hurting you or you are in danger, move somewhere safer if you can and contact someone you trust or local emergency support. Use a device the person cannot monitor if possible."
  },
  {
   "id": "grief_dad",
@@ -965,7 +990,7 @@
  {
   "id": "meta_remember",
   "category": "meta",
-  "text": "Will I remember you? I don't even keep this conversation. You're a beautiful one-time event."
+  "text": "I use up to four recent turns to keep this chat coherent. They stay in this page until you reset or reload it. Sentimental? No. Functional? Barely."
  },
  {
   "id": "meta_other_people",
@@ -1085,7 +1110,7 @@
  {
   "id": "meta_privacy",
   "category": "meta",
-  "text": "Recording? Nothing here is stored. Your secrets are safe with me; your dignity, less so."
+  "text": "Recent chat turns are sent to TypeSafe so I can choose a reply. Do not put secrets here. Your dignity remains your own problem."
  },
  {
   "id": "fun_moon",
@@ -1135,7 +1160,7 @@
  {
   "id": "empathy_panic",
   "category": "empathy",
-  "text": "Panic attack? Okay. Four counts in, hold four, slow out. I'm staying right here. You've survived every single one so far."
+  "text": "Panic attack? Slow your breathing if you can, move somewhere safe, and contact someone you trust. If this feels medically dangerous, call local emergency services."
  },
  {
   "id": "empathy_divorce",
@@ -1145,7 +1170,7 @@
  {
   "id": "crisis_medical",
   "category": "crisis",
-  "text": "That sounds like a medical emergency. Call emergency services or get someone to help you right now. This gets no comedy. Please."
+  "text": "If you overdosed or may be in medical danger, call emergency services or get someone to help now. If this is a relapse without immediate danger, contact someone you trust or local support. This gets no comedy."
  },
  {
   "id": "empathy_body_image",
