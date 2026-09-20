@@ -1,66 +1,119 @@
 # Jeff
 
-A chatbot that cannot write. Every reply is a pre-written line, picked by
-[TypeSafe's Jev](https://docs.typesafe.ai), a model that returns calibrated
-judgments instead of generated text. Zero generation, zero hallucination.
+Jeff is a chatbot whose visible replies come from a checked-in line bank. It
+uses [TypeSafe Jev](https://docs.typesafe.ai) to rank candidate replies and
+classify the current message. The model does not write Jeff's reply.
 
-Live: https://askjeff.vercel.app (private demo)
+That design limits the output to reviewed text. It does not guarantee that
+Jeff will choose the right line or understand the message correctly.
 
-## How it works
+## How a turn works
 
-One turn, one Jev call:
+1. Local safety rules check the normalized message for crisis and grief
+   phrases. A match returns a serious line without calling TypeSafe.
+2. A short follow-up to a serious exchange also returns a serious line without
+   a model call.
+3. Other messages go to the serverless API. The API sends the current message,
+   up to four recent turns, Jeff's persona, and the candidate lines to TypeSafe.
+4. TypeSafe scores the candidates and classifies nonsense, personal questions,
+   distress, self-harm, and threats toward other people.
+5. Local decision code applies the safety and fit thresholds, then returns one
+   line from the bank.
 
-1. Safety nets (deterministic regexes) check for crisis, grief, and harassment
-   first. Crisis and grief messages get straight, serious pre-written answers
-   with no model call at all.
-2. Otherwise every line in the bank (236) is scored against the message in a
-   single parallel Jev request, plus four yes/no checks: nonsense, personal
-   question, distress, threat.
-3. The decision cascade picks the winner: dodge on nonsense or low fit,
-   threat/refusal lines on threats, an empathy lock on real distress, and the
-   best-scoring line otherwise.
-4. The response includes the winner, its score, runner-up lines, and the raw
-   noul values, which the UI shows in the "watch him think" sidebar.
-
-Full design and threshold history: [docs/FINAL_SPEC.md](docs/FINAL_SPEC.md).
+The bank currently contains 241 lines: 221 regular and safety lines, 13 dodge
+lines, and 7 short follow-up lines. See
+[the implementation reference](docs/FINAL_SPEC.md) for the routing details.
 
 ## Project layout
 
-    index.html          static frontend (no build step)
-    styles/main.css     all styling, themeable via data-theme
-    src/                frontend modules (entry: src/main.js)
-    api/chat.js         Vercel serverless function, holds the API key
-    lib/                engine shared by api and tests (bank, safety, decide)
-    lib/bank.json       the 236 pre-written lines
-    test/               safety + decision unit tests, live API tests
-    docs/               design spec
+```text
+index.html          Static frontend
+styles/main.css     Layout, themes, and responsive styles
+src/                Browser modules
+api/chat.js         Vercel function and TypeSafe client
+lib/                Line bank, safety rules, scoring questions, and decisions
+test/               Offline unit tests and opt-in live tests
+docs/               Implementation, privacy, safety, and release notes
+```
 
-## Run tests
+## Requirements
 
-    node test/safety.test.mjs     # deterministic safety nets (no API)
-    node test/decide.test.mjs     # decision cascade (no API)
-    node test/bank.test.mjs       # bank shape invariants (no API)
-    TYPESAFE_API_KEY=... node test/live.test.mjs [--full]   # real API
+- Node.js 20.18.3 or newer
+- A TypeSafe API key for real responses
+- A function runtime for `/api/chat`, such as Vercel's local development server
 
-## Local development
+Copy `.env.example` to `.env.local` and set the key there. Do not put secrets in
+client-side JavaScript or commit an environment file.
 
-    # any static server from the project root, e.g.
-    python3 -m http.server 8642
-    # /api/chat needs a function runtime; use `vercel dev` for the full stack.
+```dotenv
+TYPESAFE_API_KEY=your_key_here
+```
 
-## Deploy (Vercel)
+Configuration:
 
-1. Import the repo, framework preset "Other".
-2. Set `TYPESAFE_API_KEY` in project environment variables.
-3. Deploy. `vercel.json` carries the security headers; `api/chat.js` is the
-   only function.
+| Variable | Required | Purpose |
+| --- | --- | --- |
+| `TYPESAFE_API_KEY` | Yes | Server-side credential for TypeSafe |
+| `TYPESAFE_MODEL` | No | Model name. Defaults to the documented `jev-latest` alias |
+| `ALLOWED_ORIGINS` | No | Comma-separated exact origins added to the API allowlist |
 
-## Editing the bank
+Localhost origins with an explicit port are allowed during development. The API
+also allows `https://askjeff.vercel.app` and the current `VERCEL_URL` when that
+environment variable is present.
 
-Lines live in `lib/bank.json`. Rules learned the hard way (see spec):
+## Run and test
 
-- Put the topic words in the line text. Lines that keep winning contests they
-  should lose are super-stimuli; anchor them.
-- Crisis and grief lines are straight, never jokes, and anchored to their
-  topic so they cannot leak into ordinary sadness.
-- After any edit run the three offline test suites.
+Use a static server for frontend-only work. Use a function runtime to exercise
+the complete flow.
+
+```sh
+python3 -m http.server 8642
+# or, for the frontend and /api/chat together
+vercel dev
+```
+
+The default test command is offline and does not use a TypeSafe key or account
+credits.
+
+```sh
+npm test
+```
+
+The live suite sends its test messages and scoring questions to TypeSafe. It
+makes a paid API request for each case that is not handled locally. Run it only
+when you intend to spend account credits.
+
+```sh
+TYPESAFE_API_KEY=... npm run test:live
+```
+
+## Privacy and safety
+
+Do not enter secrets, credentials, or sensitive personal information. The
+browser sends the current message and up to four recent exchanges to this
+project's API. Most turns are then sent to TypeSafe for scoring. Hosting and
+provider infrastructure may keep its own logs or telemetry.
+
+Jeff is an entertainment project, not an emergency, medical, mental-health, or
+legal service. Its safety routing uses finite rules plus model classifications
+and can miss or misclassify messages. See [privacy](docs/PRIVACY.md) and
+[safety](docs/SAFETY.md) for the exact boundaries.
+
+## Public deployment
+
+The function has a best-effort in-memory limit of 10 requests per minute and 60
+per UTC day for each client address. Serverless instances do not share that
+memory, and a restart clears it. This is not a global abuse or cost control.
+Before exposing the endpoint publicly, add platform-level rate limits, spending
+alerts, and an upstream quota. Complete the
+[public release checklist](docs/PUBLIC_RELEASE_CHECKLIST.md) as well.
+
+## Contributing
+
+Read [CONTRIBUTING.md](CONTRIBUTING.md) before changing the bank or safety
+routing. Report security problems through the private process in
+[SECURITY.md](SECURITY.md).
+
+## License
+
+Jeff is available under the [MIT License](LICENSE).

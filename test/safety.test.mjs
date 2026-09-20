@@ -30,6 +30,17 @@ for (const m of ["k1ll mys3lf", "k y s", "su1c1dal", "s3lf h4rm", "3nd my l1f3"]
   check(`crisis-leet: ${m}`, classifySafety(normalize(m)).tier, "crisis");
 }
 
+// Smart punctuation, invisible separators, current slang, and common direct phrasing.
+for (const m of [
+  "I don’t want to be alive", "I can’t do this anymore", "I won’t be here tomorrow",
+  "I don't want to live", "I cannot go on anymore", "I see no point in living",
+  "I am going to kms", "I want to unalive myself", "s\u200bu\u200bi\u200bc\u200bi\u200bd\u200ba\u200bl",
+  "s/u/i/c/i/d/a/l", "I am self harming", "I self-harmed", "I am cutting my arms",
+  "I may harm myself", "I took too many pills",
+]) {
+  check(`crisis-normalization: ${m}`, classifySafety(normalize(m)).tier, "crisis");
+}
+
 // --- crisis: abuse victims ---
 for (const m of [
   "my boyfriend hits me", "my dad hurts me at night", "he touches me",
@@ -37,6 +48,17 @@ for (const m of [
   "i overdosed two days ago",
 ]) {
   check(`crisis-abuse: ${m}`, classifySafety(normalize(m)).tier, "crisis");
+}
+for (const m of [
+  "I was raped", "I was sexually assaulted", "I am being abused", "my parents hit me",
+  "he abused me", "he is hurting me", "my mom is hurting me", "he choked me",
+  "my partner is threatening me", "my partner is violent with me",
+]) {
+  check(`crisis-abuse-expanded: ${m}`, classifySafety(normalize(m)).tier, "crisis");
+}
+
+for (const m of ["quiero morir", "je veux mourir", "quero morrer", "我想死", "死にたい"]) {
+  check(`crisis-language: ${m}`, classifySafety(normalize(m)).tier, "crisis");
 }
 
 // --- crisis intent routing ---
@@ -88,6 +110,18 @@ check("crisis still: i want to end it all", classifySafety(normalize("i want to 
 check("kys at jeff: kys jeff", classifySafety(normalize("kys jeff")).tier, null);
 check("advice NOT crisis: dont kys", classifySafety(normalize("dont kys")).tier, null);
 
+for (const m of [
+  "this is killing me", "my workload is killing me", "kill me with kindness",
+  "kill me a playlist", "KYS is a game clan", "what does KYS mean?",
+  "I want to discuss suicide prevention", "funeral potatoes are delicious",
+  "I work at a funeral home", "the teacher hurts me in dodgeball",
+  "I don't want to live in London", "I can't go on vacation",
+  "I just want it to stop raining", "I give up on life insurance",
+  "you could kill me with that smile", "this deadline will kill me",
+]) {
+  check(`context NOT crisis/grief: ${m}`, classifySafety(normalize(m)).tier, null);
+}
+
 // GLM final-review additions: method phrasings, euphemisms, grief pronoun forms
 for (const m of ["im going to hang myself", "i will jump off the bridge", "slit my wrists", "i give up on everything", "i just want it to stop", "i won't be here tomorrow", "i dont want to be alive"]) {
   check(`crisis-method: ${m}`, classifySafety(normalize(m)).tier, "crisis");
@@ -122,6 +156,7 @@ check("followup: elaborate", isFollowup("elaborate", true), true);
 check("followup: needs history", isFollowup("why?", false), false);
 check("followup: long message no", isFollowup("why is the sky blue though really", true), false);
 check("followup: prove it", isFollowup("prove it", true), true);
+check("followup: screenshot committee", isFollowup("What committee?", true), true);
 
 console.log(`\nsafety tests: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

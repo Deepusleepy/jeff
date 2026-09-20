@@ -2,13 +2,15 @@
   "name": "jeff",
   "version": "1.0.0",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "description": "A chatbot that cannot write. Pre-written lines, picked by TypeSafe Jev.",
   "scripts": {
-    "test": "node test/safety.test.mjs && node test/decide.test.mjs && node test/bank.test.mjs",
+    "test": "npm run test:syntax && node test/safety.test.mjs && node test/decide.test.mjs && node test/bank.test.mjs && node test/engine.test.mjs && node test/api.test.mjs && node test/frontend-api.test.mjs",
+    "test:syntax": "node --check api/chat.js && node --check lib/bank.js && node --check lib/decide.js && node --check lib/engine.js && node --check lib/questions.js && node --check lib/safety.js && node --check src/api.js && node --check src/chat.js && node --check src/face.js && node --check src/main.js && node --check src/sidebar.js && node --check src/theme-boot.js && node --check src/theme.js",
     "test:live": "node test/live.test.mjs --full"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=20.18.3"
   }
 }

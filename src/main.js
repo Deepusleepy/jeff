@@ -4,7 +4,7 @@ import { initTheme } from "./theme.js";
 import { createFace } from "./face.js";
 import { createSidebar } from "./sidebar.js";
 import { createChat } from "./chat.js";
-import { askJeff } from "./api.js";
+import { askJeff, userMessageForError } from "./api.js";
 
 initTheme();
 
@@ -24,14 +24,20 @@ const bootLine = document.getElementById("bootLine");
 const rest = document.getElementById("rest");
 const header = document.querySelector("header");
 const openChip = document.getElementById("openChip");
+const composer = document.getElementById("composer");
+const prefersReducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
 
 let powered = true;
 try { powered = sessionStorage.getItem("jeff-booted") === "1"; } catch {}
 
 function revealUI() {
+  header.hidden = false;
+  header.inert = false;
   header.classList.remove("pre-hide");
   header.classList.add("pre-in");
-  openChip.classList.remove("pre-hide");
+  openChip.hidden = false;
+  openChip.inert = false;
+  openChip.classList.remove("pre-hide", "hide");
   openChip.classList.add("pre-in");
 }
 
@@ -39,12 +45,17 @@ function skipPower() {
   powerBtn.classList.add("gone");
   bootLine.classList.add("gone");
   document.getElementById("warnText").classList.add("gone");
+  rest.hidden = false;
+  rest.inert = false;
   rest.classList.add("in");
-  document.getElementById("composer").classList.remove("pre-hide");
-  document.getElementById("composer").classList.add("pre-in");
+  composer.hidden = false;
+  composer.inert = false;
+  composer.classList.remove("pre-hide");
+  composer.classList.add("pre-in");
   revealUI();
   headerFace.set("blink");
   try { sessionStorage.setItem("jeff-booted", "1"); } catch {}
+  requestAnimationFrame(() => document.getElementById("input").focus());
 }
 
 if (!powered) {
@@ -62,8 +73,13 @@ if (!powered) {
     heroFace.boot();
     revealUI();
 
-    // typed welcome, then reveal the landing
+    // Typed welcome, unless the user has asked the OS to reduce motion.
     const line = "Jeff online. Judging has resumed.";
+    if (prefersReducedMotion.matches) {
+      bootLine.textContent = line;
+      skipPower();
+      return;
+    }
     let i = 0;
     bootLine.innerHTML = '<span class="caret"></span>';
     const typer = setInterval(() => {
@@ -111,22 +127,32 @@ const pill = document.getElementById("pill");
 
 const history = []; // [{user, jeff}], capped at 4 in api.js
 let busy = false;
+let composing = false;
 
-function setReady(ready) {
+function setReady(ready = input.value.trim().length > 0) {
   sendBtn.classList.toggle("ready", ready);
+  sendBtn.disabled = busy || !ready;
+}
+
+function setBusy(nextBusy) {
+  busy = nextBusy;
+  input.disabled = nextBusy;
+  pill.setAttribute("aria-busy", String(nextBusy));
+  chat.setBusy(nextBusy);
+  setReady();
 }
 
 async function send() {
   const message = input.value.trim();
   if (!message || busy || !powered) return;
-  busy = true;
+  setBusy(true);
   input.value = "";
   setReady(false);
   sendBtn.classList.remove("squint");
 
   chat.activate();
   document.getElementById('resetBtn').hidden = false;
-  chat.add("user", message);
+  const userRow = chat.add("user", message);
 
   const faceExprBefore = "think";
   headerFace.set(faceExprBefore);
@@ -149,22 +175,34 @@ async function send() {
     const row = chat.add("jeff", res.reply, res.serious);
     chat.attachAlts(row, res.alts);
     chat.express(res, headerFace, res.mood, res.dot, 2600);
-    history.push({ user: message, jeff: res.reply });
+    history.push({ user: message, jeff: res.reply, mode: res.mode });
+    if (history.length > 4) history.splice(0, history.length - 4);
   } catch (err) {
-    console.error("askJeff failed:", err);
+    console.warn("askJeff failed", { code: err?.code, status: err?.status });
     thinkingRow.remove();
-    chat.add("jeff", "Something broke on my end. Which is rare, and frankly offensive. Try again.", false);
+    userRow.remove();
+    input.value = message;
+    const errorRow = chat.add("jeff", userMessageForError(err), false);
+    errorRow.setAttribute("role", "alert");
+    sidebar.fail();
     chat.setMood("Glitching", "amber", true);
     setTimeout(() => chat.setMood("Online", "cyan", false), 2200);
   } finally {
-    busy = false;
+    setBusy(false);
     chat.scroll();
     input.focus();
   }
 }
 
-input.addEventListener("input", () => setReady(input.value.trim().length > 0));
-input.addEventListener("keydown", (e) => { if (e.key === "Enter") send(); });
+input.addEventListener("input", () => setReady());
+input.addEventListener("compositionstart", () => { composing = true; });
+input.addEventListener("compositionend", () => { composing = false; });
+input.addEventListener("keydown", (event) => {
+  if (event.key === "Enter" && !event.isComposing && !composing) {
+    event.preventDefault();
+    send();
+  }
+});
 sendBtn.addEventListener("click", () => {
   if (!input.value.trim()) return;
   sendBtn.classList.add("squint");
@@ -201,14 +239,16 @@ function track() {
   sMouth.style.transform = `translateX(${((dx / dist) * k * 3).toFixed(2)}px)`;
 }
 
-pill.addEventListener("mousemove", (e) => {
-  if (busy) return;
-  lastEvent = e;
-  if (!raf) raf = requestAnimationFrame(track);
-});
-pill.addEventListener("mouseleave", () => {
-  lastEvent = null;
-  if (raf) { cancelAnimationFrame(raf); raf = 0; }
-  sEyes.forEach((eye) => (eye.style.transform = ""));
-  sMouth.style.transform = "";
-});
+if (!prefersReducedMotion.matches) {
+  pill.addEventListener("mousemove", (event) => {
+    if (busy) return;
+    lastEvent = event;
+    if (!raf) raf = requestAnimationFrame(track);
+  });
+  pill.addEventListener("mouseleave", () => {
+    lastEvent = null;
+    if (raf) { cancelAnimationFrame(raf); raf = 0; }
+    sEyes.forEach((eye) => (eye.style.transform = ""));
+    sMouth.style.transform = "";
+  });
+}

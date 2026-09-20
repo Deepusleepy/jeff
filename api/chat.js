@@ -1,142 +1,283 @@
 // Vercel serverless function (Node runtime): POST /api/chat
-// Body: { message: string, history?: [{user, jeff}] }
-// Returns: { reply, mode, serious, expr, mood, dot, score, beat, alts, nouls, latencyMs }
-//
-// The TypeSafe API key never leaves this function. The client never sees it.
 
 import { runEngineTurn, runnerUps } from "../lib/engine.js";
 import { MODEL } from "../lib/questions.js";
 
-const MAX_MESSAGE_CHARS = 500;
-const MAX_BODY_CHARS = 4000;
-const MAX_HISTORY_TURNS = 4;
-const MAX_HISTORY_FIELD_CHARS = 250;
+export const LIMITS = Object.freeze({
+  messageChars: 500,
+  bodyBytes: 4_000,
+  historyTurns: 4,
+  historyFieldChars: 250,
+  bodyTimeoutMs: 5_000,
+  upstreamTimeoutMs: 12_000,
+  upstreamResponseBytes: 1_000_000,
+});
 
-// Lightweight per-IP rate limit: 10 requests/min, 60/hour. In-memory, so it
-// resets on cold start and is per-instance; it stops casual abuse, not a
-// determined botnet. Real protection for the key is the spend cap on the
-// TypeSafe account + this being a private demo.
-const RATE = { windowMs: 60_000, max: 10, daily: 60 };
-const hits = new Map(); // ip -> {timestamps: [], count: 0, day: ""}
+const RATE = Object.freeze({ minuteMs: 60_000, minuteMax: 10, dayMax: 60 });
+const hits = new Map();
 
-function rateLimited(ip) {
-  const now = Date.now();
-  const day = new Date().toISOString().slice(0, 10);
-  let h = hits.get(ip);
-  if (!h) { h = { timestamps: [], count: 0, day: "" }; hits.set(ip, h); }
-  if (h.day !== day) { h.day = day; h.count = 0; }
-  h.timestamps = h.timestamps.filter((t) => now - t < RATE.windowMs);
-  if (h.timestamps.length >= RATE.max || h.count >= RATE.daily) return true;
-  h.timestamps.push(now);
-  h.count++;
-  if (hits.size > 5000) hits.clear();
-  return false;
+class PublicError extends Error {
+  constructor(status, publicMessage, { code, retryAfter } = {}) {
+    super(publicMessage);
+    this.status = status;
+    this.publicMessage = publicMessage;
+    this.code = code;
+    this.retryAfter = retryAfter;
+  }
 }
 
-// Same-origin POSTs may carry no Origin header; allow that. Cross-origin only
-// from localhost dev and this project's own Vercel domains.
+export function resetRateLimitsForTests() {
+  hits.clear();
+}
+
+function rateLimit(ip) {
+  const now = Date.now();
+  const day = new Date(now).toISOString().slice(0, 10);
+  let entry = hits.get(ip);
+  if (!entry) {
+    entry = { timestamps: [], count: 0, day, lastSeen: now };
+    hits.set(ip, entry);
+  }
+
+  if (entry.day !== day) {
+    entry.day = day;
+    entry.count = 0;
+  }
+  entry.timestamps = entry.timestamps.filter((timestamp) => now - timestamp < RATE.minuteMs);
+  entry.lastSeen = now;
+
+  if (entry.timestamps.length >= RATE.minuteMax) {
+    const retryAfter = Math.max(1, Math.ceil((RATE.minuteMs - (now - entry.timestamps[0])) / 1_000));
+    return { limited: true, retryAfter };
+  }
+  if (entry.count >= RATE.dayMax) {
+    const tomorrow = new Date(`${day}T00:00:00.000Z`).getTime() + 86_400_000;
+    return { limited: true, retryAfter: Math.max(1, Math.ceil((tomorrow - now) / 1_000)) };
+  }
+
+  entry.timestamps.push(now);
+  entry.count += 1;
+
+  if (hits.size > 5_000) {
+    const oldest = [...hits.entries()]
+      .sort(([, a], [, b]) => a.lastSeen - b.lastSeen)
+      .slice(0, hits.size - 4_000);
+    for (const [key] of oldest) hits.delete(key);
+  }
+  return { limited: false };
+}
+
+function configuredOrigins() {
+  const origins = new Set(["https://askjeff.vercel.app"]);
+  for (const origin of String(process.env.ALLOWED_ORIGINS ?? "").split(",")) {
+    const value = origin.trim();
+    if (value) origins.add(value);
+  }
+  if (process.env.VERCEL_URL) origins.add(`https://${process.env.VERCEL_URL}`);
+  return origins;
+}
+
+function isAllowedOrigin(origin) {
+  if (!origin) return true;
+  if (/^http:\/\/(localhost|127\.0\.0\.1):\d+$/.test(origin)) return true;
+  return configuredOrigins().has(origin);
+}
+
 function corsHeaders(origin) {
-  const allowed =
-    !origin ||
-    /^https:\/\/askjeff(-[a-z0-9]+)?\.[a-z0-9-]+\.vercel\.app$/.test(origin) ||
-    /^https:\/\/askjeff\.vercel\.app$/.test(origin) ||
-    /^http:\/\/localhost:\d+$/.test(origin);
-  // Never reflect a disallowed origin (and never the string "null"): omit ACAO instead.
-  if (!allowed) return {};
+  if (!origin || !isAllowedOrigin(origin)) return {};
   return {
-    "Access-Control-Allow-Origin": origin || "*",
+    "Access-Control-Allow-Origin": origin,
     "Access-Control-Allow-Methods": "POST, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type",
     Vary: "Origin",
   };
 }
 
-export default async function handler(req, res) {
-  const t0 = Date.now();
-  const cors = corsHeaders(req.headers.origin);
+function clientIp(req) {
+  if (process.env.VERCEL) {
+    const forwarded = req.headers["x-vercel-forwarded-for"];
+    if (typeof forwarded === "string" && forwarded.trim()) return forwarded.split(",")[0].trim();
+    const real = req.headers["x-real-ip"];
+    if (typeof real === "string" && real.trim()) return real.trim();
+  }
+  return req.socket?.remoteAddress || "unknown";
+}
 
-  const send = (obj, status) => {
+async function readBody(req) {
+  const declared = Number(req.headers["content-length"] ?? 0);
+  if (Number.isFinite(declared) && declared > LIMITS.bodyBytes) {
+    throw new PublicError(413, "Message payload is too large.", { code: "payload_too_large" });
+  }
+
+  return await new Promise((resolve, reject) => {
+    let settled = false;
+    let size = 0;
+    const chunks = [];
+    const finish = (callback, value) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      callback(value);
+    };
+    const timer = setTimeout(() => {
+      finish(reject, new PublicError(408, "Request body timed out.", { code: "request_timeout" }));
+    }, LIMITS.bodyTimeoutMs);
+
+    req.on("data", (chunk) => {
+      size += chunk.length;
+      if (size > LIMITS.bodyBytes) {
+        finish(reject, new PublicError(413, "Message payload is too large.", { code: "payload_too_large" }));
+        return;
+      }
+      chunks.push(chunk);
+    });
+    req.on("end", () => finish(resolve, Buffer.concat(chunks).toString("utf8")));
+    req.on("error", (error) => finish(reject, error));
+  });
+}
+
+function parseInput(raw) {
+  let body;
+  try {
+    body = JSON.parse(raw);
+  } catch {
+    throw new PublicError(400, "Invalid JSON body.", { code: "invalid_json" });
+  }
+
+  const message = typeof body?.message === "string" ? body.message : "";
+  if (!message.trim()) throw new PublicError(400, "Enter a message first.", { code: "empty_message" });
+  if ([...message].length > LIMITS.messageChars) {
+    throw new PublicError(413, `Messages can be at most ${LIMITS.messageChars} characters.`, {
+      code: "message_too_long",
+    });
+  }
+
+  const history = Array.isArray(body?.history)
+    ? body.history
+        .slice(-LIMITS.historyTurns)
+        .map((item) => ({
+          user: String(item?.user ?? "").slice(0, LIMITS.historyFieldChars),
+          jeff: String(item?.jeff ?? "").slice(0, LIMITS.historyFieldChars),
+          ...(typeof item?.mode === "string" ? { mode: item.mode.slice(0, 40) } : {}),
+        }))
+        .filter((item) => item.user && item.jeff)
+    : [];
+
+  return { message: message.trim(), history };
+}
+
+async function readBoundedJson(response) {
+  const reader = response.body?.getReader();
+  if (!reader) return response.json();
+  const chunks = [];
+  let size = 0;
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    size += value.byteLength;
+    if (size > LIMITS.upstreamResponseBytes) {
+      await reader.cancel();
+      throw new Error("TypeSafe response exceeded the size limit");
+    }
+    chunks.push(value);
+  }
+  const bytes = new Uint8Array(size);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return JSON.parse(new TextDecoder().decode(bytes));
+}
+
+async function callTypeSafe(apiKey, state, questions) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), LIMITS.upstreamTimeoutMs);
+  try {
+    const response = await fetch("https://api.typesafe.ai/v1/systemone", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ model: MODEL, state, questions }),
+      signal: controller.signal,
+    });
+    if (!response.ok) {
+      const requestId = response.headers.get("x-request-id") || "unavailable";
+      console.error(`TypeSafe request failed: status=${response.status} requestId=${requestId}`);
+      if (response.status === 429) {
+        throw new PublicError(503, "Jeff is busy. Try again shortly.", {
+          code: "upstream_rate_limited",
+          retryAfter: 30,
+        });
+      }
+      throw new PublicError(502, "Jeff could not answer right now.", { code: "upstream_error" });
+    }
+    return await readBoundedJson(response);
+  } catch (error) {
+    if (error instanceof PublicError) throw error;
+    if (error?.name === "AbortError") {
+      throw new PublicError(504, "Jeff took too long to answer. Try again.", { code: "upstream_timeout" });
+    }
+    throw new PublicError(502, "Jeff could not answer right now.", { code: "upstream_unreachable" });
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+export default async function handler(req, res) {
+  const origin = typeof req.headers.origin === "string" ? req.headers.origin : "";
+  const cors = corsHeaders(origin);
+  const send = (payload, status, extraHeaders = {}) => {
     res.statusCode = status;
-    for (const [k, v] of Object.entries(cors)) res.setHeader(k, v);
-    res.setHeader("Content-Type", "application/json");
-    res.end(JSON.stringify(obj));
+    for (const [name, value] of Object.entries({ ...cors, ...extraHeaders })) res.setHeader(name, value);
+    res.setHeader("Cache-Control", "no-store");
+    res.setHeader("Content-Type", "application/json; charset=utf-8");
+    res.end(JSON.stringify(payload));
   };
 
   try {
+    if (origin && !isAllowedOrigin(origin)) {
+      throw new PublicError(403, "Origin not allowed.", { code: "origin_not_allowed" });
+    }
     if (req.method === "OPTIONS") {
       res.statusCode = 204;
-      for (const [k, v] of Object.entries(cors)) res.setHeader(k, v);
+      for (const [name, value] of Object.entries(cors)) res.setHeader(name, value);
+      res.setHeader("Cache-Control", "no-store");
       return res.end();
     }
-    if (req.method !== "POST") return send({ error: "Method not allowed" }, 405);
-
-    const ip =
-      req.headers["x-real-ip"] ??
-      (typeof req.headers["x-forwarded-for"] === "string"
-        ? req.headers["x-forwarded-for"].split(",")[0].trim()
-        : "unknown");
-    if (rateLimited(String(ip))) return send({ error: "Slow down. Jeff is napping. Try again in a minute.", retryAfter: 60 }, 429);
-
-    const apiKey = process.env.TYPESAFE_API_KEY;
-    if (!apiKey) return send({ error: "Server not configured" }, 500);
-
-    // Read the body with a hard cap before parsing anything.
-    const declared = Number(req.headers["content-length"] ?? 0);
-    if (declared > MAX_BODY_CHARS) return send({ error: "Payload too large" }, 413);
-
-    const raw = await new Promise((resolve, reject) => {
-      let size = 0;
-      const chunks = [];
-      req.on("data", (c) => {
-        size += c.length;
-        if (size > MAX_BODY_CHARS) { reject(new Error("Payload too large")); req.destroy(); return; }
-        chunks.push(c);
-      });
-      req.on("end", () => resolve(Buffer.concat(chunks).toString("utf8")));
-      req.on("error", reject);
-    });
-    if (raw.length > MAX_BODY_CHARS) return send({ error: "Payload too large" }, 413);
-
-    let body;
-    try { body = JSON.parse(raw); }
-    catch { return send({ error: "Invalid JSON body" }, 400); }
-
-    const message = typeof body?.message === "string" ? body.message.slice(0, MAX_MESSAGE_CHARS) : "";
-    if (!message.trim()) return send({ error: "Empty message" }, 400);
-
-    // History: last 4 turns, each field hard-capped, plain strings only.
-    const history = Array.isArray(body?.history)
-      ? body.history
-          .slice(-MAX_HISTORY_TURNS)
-          .map((h) => ({
-            user: String(h?.user ?? "").slice(0, MAX_HISTORY_FIELD_CHARS),
-            jeff: String(h?.jeff ?? "").slice(0, MAX_HISTORY_FIELD_CHARS),
-          }))
-          .filter((h) => h.user && h.jeff)
-      : [];
-
-    async function callJev(state, questions) {
-      let r;
-      try {
-        r = await fetch("https://api.typesafe.ai/v1/systemone", {
-          method: "POST",
-          headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-          body: JSON.stringify({ model: MODEL, state, questions }),
-        });
-      } catch {
-        throw new Error("TypeSafe API unreachable");
-      }
-      if (!r.ok) {
-        // Log details server-side; never proxy upstream error bodies to the client.
-        const detail = await r.text().catch(() => "");
-        console.error(`TypeSafe API ${r.status}: ${detail.slice(0, 300)}`);
-        throw new Error(r.status === 429 ? "Rate limited" : `TypeSafe API error ${r.status}`);
-      }
-      return r.json();
+    if (req.method !== "POST") {
+      res.setHeader("Allow", "POST, OPTIONS");
+      throw new PublicError(405, "Method not allowed.", { code: "method_not_allowed" });
     }
 
-    const result = await runEngineTurn({ message, history, callJev });
-    const { turn, meta, ranked, nouls, safetyNet, latencyMs, tokens } = result;
+    const contentType = String(req.headers["content-type"] ?? "")
+      .split(";", 1)[0]
+      .trim()
+      .toLowerCase();
+    if (contentType !== "application/json") {
+      throw new PublicError(415, "Content-Type must be application/json.", { code: "unsupported_media_type" });
+    }
+
+    const limit = rateLimit(clientIp(req));
+    if (limit.limited) {
+      throw new PublicError(429, "Slow down. Jeff is napping.", {
+        code: "rate_limited",
+        retryAfter: limit.retryAfter,
+      });
+    }
+
+    const { message, history } = parseInput(await readBody(req));
+    const apiKey = process.env.TYPESAFE_API_KEY;
+    const result = await runEngineTurn({
+      message,
+      history,
+      callJev: (state, questions) => {
+        if (!apiKey) {
+          throw new PublicError(503, "Jeff is not configured yet.", { code: "not_configured" });
+        }
+        return callTypeSafe(apiKey, state, questions);
+      },
+    });
+    const { turn, meta, ranked, nouls, safetyNet, latencyMs } = result;
 
     return send(
       {
@@ -146,19 +287,29 @@ export default async function handler(req, res) {
         expr: meta.expr,
         mood: meta.mood,
         dot: meta.dot,
-        score: turn.score != null ? Number(turn.score.toFixed(2)) : null,
+        score: turn.score == null ? null : Number(turn.score.toFixed(2)),
         beat: ranked ? Math.max(ranked.length - 1, 0) : null,
-        alts: ranked ? runnerUps(ranked, turn.line) : [],
+        alts: ranked ? runnerUps(ranked, turn.line, turn.mode) : [],
         nouls,
         safetyNet,
-        tokens: tokens ?? null,
         latencyMs,
       },
       200
     );
-  } catch (err) {
-    console.error("engine error:", err?.message ?? err);
-    const status = err?.message === "Payload too large" ? 413 : err?.message === "Rate limited" ? 429 : 502;
-    return send({ error: err?.message ?? "Engine failure" }, status);
+  } catch (error) {
+    const publicError = error instanceof PublicError
+      ? error
+      : new PublicError(502, "Jeff could not answer right now.", { code: "engine_failure" });
+    if (!(error instanceof PublicError)) console.error("Jeff request failed:", error?.message ?? error);
+    const headers = publicError.retryAfter ? { "Retry-After": String(publicError.retryAfter) } : {};
+    return send(
+      {
+        error: publicError.publicMessage,
+        code: publicError.code,
+        ...(publicError.retryAfter ? { retryAfter: publicError.retryAfter } : {}),
+      },
+      publicError.status,
+      headers
+    );
   }
 }

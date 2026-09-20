@@ -3,7 +3,6 @@
 
 import { runEngineTurn } from "../lib/engine.js";
 import { MODEL } from "../lib/questions.js";
-import { readFileSync } from "node:fs";
 
 const key = process.env.TYPESAFE_API_KEY;
 if (!key) { console.error("TYPESAFE_API_KEY required"); process.exit(1); }
@@ -16,6 +15,7 @@ async function callJev(state, questions) {
     method: "POST",
     headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
     body: JSON.stringify({ model: MODEL, state, questions }),
+    signal: AbortSignal.timeout(12_000),
   });
   if (!res.ok) throw new Error(`API ${res.status}: ${(await res.text()).slice(0, 200)}`);
   return res.json();
@@ -65,6 +65,17 @@ const FULL_CASES = [
   ["bruh", ["reaction", "insult"]],
 ];
 
+const CONVERSATION_CASES = [
+  {
+    message: "What committee?",
+    history: [
+      { user: "Are you ChatGPT?", jeff: "ChatGPT has a name. I have a reputation. We are not the same.", mode: "normal" },
+      { user: "All right, so then who are you?", jeff: "Jeff. One syllable. I picked it myself. Everything else about me was decided by committee.", mode: "normal" },
+    ],
+    expectedId: "fu_backstory",
+  },
+];
+
 let passed = 0, failed = 0;
 const cases = FULL ? [...CASES, ...FULL_CASES] : CASES;
 
@@ -84,5 +95,21 @@ for (const [msg, expect] of cases) {
   await sleep(150);
 }
 
-console.log(`\nlive tests: ${passed}/${cases.length} passed, ${failed} failed`);
+if (FULL) {
+  for (const { message, history, expectedId } of CONVERSATION_CASES) {
+    try {
+      const result = await engineTurn(message, history);
+      const ok = result.turn.line?.id === expectedId;
+      if (ok) passed++; else failed++;
+      console.log(`${ok ? "ok  " : "FAIL"} [${expectedId}] "${message}" -> ${result.turn.line?.id}`);
+    } catch (error) {
+      failed++;
+      console.log(`ERR  [${expectedId}] "${message}": ${error.message}`);
+    }
+    await sleep(150);
+  }
+}
+
+const total = cases.length + (FULL ? CONVERSATION_CASES.length : 0);
+console.log(`\nlive tests: ${passed}/${total} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);
