@@ -325,6 +325,70 @@ try {
     }
   });
 
+  await check("short reactions are resolved locally and repeated filler is cooled down", async () => {
+    setEnv("TYPESAFE_API_KEY", undefined);
+    let calls = 0;
+    globalThis.fetch = async () => { calls++; throw new Error("unexpected"); };
+    const remoteAddress = "repeat-filler-ip";
+    const originalDateNow = Date.now;
+    let now = Date.parse("2030-01-02T12:00:00.000Z");
+    Date.now = () => now;
+    try {
+      const first = await invoke({
+        body: JSON.stringify({ message: "lol" }),
+        remoteAddress,
+      });
+      assert.equal(first.res.statusCode, 200);
+      assert.equal(first.json.reply, "Glad one of us is entertained.");
+      assert.deepEqual(first.json.alts, []);
+
+      const second = await invoke({
+        body: JSON.stringify({
+          message: "lol",
+          history: [{ user: "lol", jeff: first.json.reply, mode: "normal" }],
+        }),
+        remoteAddress,
+      });
+      assert.equal(second.res.statusCode, 200);
+      assert.match(second.json.reply, /credits/i);
+      assert.deepEqual(second.json.alts, []);
+
+      const third = await invoke({
+        body: JSON.stringify({ message: "lol" }),
+        remoteAddress,
+      });
+      assert.equal(third.res.statusCode, 429);
+      assert.equal(third.json.code, "repeat_spam");
+      assert.equal(Number(third.res.getHeader("retry-after")), third.json.retryAfter);
+      assert.ok(third.json.retryAfter >= 1 && third.json.retryAfter <= 60);
+
+      now += 60_001;
+      const afterCooldown = await invoke({
+        body: JSON.stringify({ message: "lol" }),
+        remoteAddress,
+      });
+      assert.equal(afterCooldown.res.statusCode, 200);
+      assert.equal(afterCooldown.json.reply, "Glad one of us is entertained.");
+
+      const coldInvocation = await invoke({
+        body: JSON.stringify({
+          message: "bruh",
+          history: [
+            { user: "bruh", jeff: "Bruh received.", mode: "normal", at: now - 2_000 },
+            { user: "bruh", jeff: "Still bruh.", mode: "normal", at: now - 1_000 },
+          ],
+        }),
+        remoteAddress: "cold-repeat-ip",
+      });
+      assert.equal(coldInvocation.res.statusCode, 429);
+      assert.equal(coldInvocation.json.code, "repeat_spam");
+      assert.equal(calls, 0);
+    } finally {
+      Date.now = originalDateNow;
+      setEnv("TYPESAFE_API_KEY", "test-key");
+    }
+  });
+
   await check("successful replies expose fit-based alternatives but not provider token usage", async () => {
     let upstreamPayload;
     globalThis.fetch = async (_url, init) => {

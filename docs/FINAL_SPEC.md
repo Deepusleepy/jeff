@@ -27,9 +27,9 @@ wording.
 
 ## Line bank
 
-The current bank has 241 lines:
+The current bank has 242 lines:
 
-- 221 regular and safety lines
+- 222 regular and safety lines
 - 13 dodge lines
 - 7 short follow-up lines
 
@@ -47,14 +47,17 @@ The browser posts JSON to `/api/chat`:
     {
       "user": "Who are you?",
       "jeff": "Jeff. One syllable. I picked it myself. Everything else about me was decided by committee.",
-      "mode": "normal"
+      "mode": "normal",
+      "at": 1916136000000
     }
   ]
 }
 ```
 
 The API accepts messages up to 500 Unicode code points, keeps at most four
-history turns, and clips each history field to 250 JavaScript string units. It
+history turns, and clips each text field to 250 JavaScript string units. The
+optional `at` value is the browser timestamp used only for the one-minute
+repeat-filler cooldown. It
 accepts only `application/json` POST requests. Request bodies have a byte limit
 and timeout.
 
@@ -90,7 +93,8 @@ The API builds this TypeSafe state:
 ```
 
 The provider request also contains one five-level score question per candidate
-line. The regular path includes 221 regular candidates, 13 dodge candidates,
+line. The regular path includes 208 model-ranked regular candidates, 14 exact
+short-reaction candidates, 13 dodge candidates,
 and five yes-or-no classifications. The short follow-up path includes seven
 follow-up candidates and a nonsense classification.
 

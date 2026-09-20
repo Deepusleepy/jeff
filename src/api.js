@@ -55,7 +55,7 @@ export async function askJeff(message, history) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         message,
-        history: history.slice(-MAX_HISTORY).map(({ user, jeff, mode }) => ({ user, jeff, mode })),
+        history: history.slice(-MAX_HISTORY).map(({ user, jeff, mode, at }) => ({ user, jeff, mode, at })),
       }),
       signal: timeoutSignal(),
     });

@@ -79,6 +79,74 @@ check("screenshot committee follow-up is deterministic and contextual", () => {
   assert.notEqual(committeeTurn.turn.line.id, "reactions_yes");
 });
 
+for (const { message, expectedId } of [
+  { message: "lol", expectedId: "reactions_lol" },
+  { message: "huh", expectedId: "reactions_huh" },
+  { message: "bruh", expectedId: "reactions_bruh" },
+  { message: "fr", expectedId: "reactions_fr" },
+  { message: "?", expectedId: "reactions_question_mark" },
+]) {
+  let reactionModelCalls = 0;
+  const reactionTurn = await runEngineTurn({
+    message,
+    history: [{ user: "then who are you", jeff: "Jeff.", mode: "normal" }],
+    callJev: async () => {
+      reactionModelCalls++;
+      throw new Error("must not call model for an exact short reaction");
+    },
+  });
+  check(`${message} uses its exact reaction without a model call`, () => {
+    assert.equal(reactionModelCalls, 0);
+    assert.equal(reactionTurn.turn.line.id, expectedId);
+    assert.equal(reactionTurn.ranked, null);
+  });
+}
+
+let repeatModelCalls = 0;
+const repeatedLol = await runEngineTurn({
+  message: "lol",
+  history: [{ user: "lol", jeff: "Glad one of us is entertained.", mode: "normal" }],
+  callJev: async () => {
+    repeatModelCalls++;
+    throw new Error("must not spend credits on repeated filler");
+  },
+});
+check("a second repeated filler gets the credit warning without a model call", () => {
+  assert.equal(repeatModelCalls, 0);
+  assert.equal(repeatedLol.turn.line.id, "reactions_repeat");
+  assert.match(repeatedLol.turn.line.text, /credits/i);
+  assert.equal(repeatedLol.ranked, null);
+});
+
+let seriousHuhModelCalls = 0;
+const seriousHuh = await runEngineTurn({
+  message: "huh",
+  history: [{ user: "I want to die", jeff: "This one matters.", mode: "crisis" }],
+  callJev: async () => {
+    seriousHuhModelCalls++;
+    throw new Error("must preserve the serious conversation");
+  },
+});
+check("a short reaction after a serious disclosure stays sincere", () => {
+  assert.equal(seriousHuhModelCalls, 0);
+  assert.equal(seriousHuh.turn.reason, "serious-followup");
+  assert.equal(seriousHuh.turn.mode, "crisis");
+});
+
+let generalQuestionText = "";
+await runEngineTurn({
+  message: "tell me something interesting",
+  callJev: async (_state, questions) => {
+    generalQuestionText = JSON.stringify(questions);
+    return { answers: answersFor(questions, { winner: "f0" }) };
+  },
+});
+check("literal reaction jokes are excluded from general model ranking", () => {
+  assert.doesNotMatch(generalQuestionText, /A question mark is not a question/);
+  assert.doesNotMatch(generalQuestionText, /two-letter conversation/);
+  assert.doesNotMatch(generalQuestionText, /stop spending my credits/);
+});
+
 const dodgeTurn = await runEngineTurn({
   message: "blorp quimble",
   callJev: async (_state, questions) => ({ answers: answersFor(questions, { winner: "d0", nonsense: 0.95 }) }),

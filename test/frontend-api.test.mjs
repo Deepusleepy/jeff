@@ -26,10 +26,11 @@ await test("sends only four history turns and preserves reply modes", async () =
     user: `u${index}`,
     jeff: `j${index}`,
     mode: index === 5 ? "crisis" : "normal",
+    at: 1_000 + index,
   }));
   await askJeff("hello", history);
   assert.equal(body.history.length, 4);
-  assert.deepEqual(body.history.at(-1), { user: "u5", jeff: "j5", mode: "crisis" });
+  assert.deepEqual(body.history.at(-1), { user: "u5", jeff: "j5", mode: "crisis", at: 1_005 });
 });
 
 await test("surfaces rate-limit status and Retry-After", async () => {

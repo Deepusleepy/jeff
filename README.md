@@ -20,7 +20,7 @@ Jeff will choose the right line or understand the message correctly.
 5. Local decision code applies the safety and fit thresholds, then returns one
    line from the bank.
 
-The bank currently contains 241 lines: 221 regular and safety lines, 13 dodge
+The bank currently contains 242 lines: 222 regular and safety lines, 13 dodge
 lines, and 7 short follow-up lines. See
 [the implementation reference](docs/FINAL_SPEC.md) for the routing details.
 

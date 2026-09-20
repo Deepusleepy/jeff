@@ -175,7 +175,7 @@ async function send() {
     const row = chat.add("jeff", res.reply, res.serious);
     chat.attachAlts(row, res.alts);
     chat.express(res, headerFace, res.mood, res.dot, 2600);
-    history.push({ user: message, jeff: res.reply, mode: res.mode });
+    history.push({ user: message, jeff: res.reply, mode: res.mode, at: Date.now() });
     if (history.length > 4) history.splice(0, history.length - 4);
   } catch (err) {
     console.warn("askJeff failed", { code: err?.code, status: err?.status });

@@ -1,6 +1,10 @@
 // Vercel serverless function (Node runtime): POST /api/chat
 
-import { runEngineTurn, runnerUps } from "../lib/engine.js";
+import {
+  lowEffortReaction,
+  runEngineTurn,
+  runnerUps,
+} from "../lib/engine.js";
 import { MODEL } from "../lib/questions.js";
 
 export const LIMITS = Object.freeze({
@@ -14,7 +18,9 @@ export const LIMITS = Object.freeze({
 });
 
 const RATE = Object.freeze({ minuteMs: 60_000, minuteMax: 10, dayMax: 60 });
+const REPEAT_RATE = Object.freeze({ windowMs: 60_000, max: 2 });
 const hits = new Map();
+const repeatHits = new Map();
 
 class PublicError extends Error {
   constructor(status, publicMessage, { code, retryAfter } = {}) {
@@ -28,6 +34,68 @@ class PublicError extends Error {
 
 export function resetRateLimitsForTests() {
   hits.clear();
+  repeatHits.clear();
+}
+
+function recentHistoryRepeatCount(message, history, now) {
+  const reaction = lowEffortReaction(message);
+  if (!reaction) return 0;
+  let count = 1;
+  for (let index = history.length - 1; index >= 0; index--) {
+    const turn = history[index];
+    const age = now - turn.at;
+    if (
+      lowEffortReaction(turn.user)?.key !== reaction.key
+      || !Number.isFinite(turn.at)
+      || age < 0
+      || age >= REPEAT_RATE.windowMs
+    ) {
+      break;
+    }
+    count++;
+  }
+  return count;
+}
+
+function repeatRateLimit(ip, message, history) {
+  const reaction = lowEffortReaction(message);
+  if (!reaction) {
+    repeatHits.delete(ip);
+    return { limited: false, count: 0 };
+  }
+
+  const now = Date.now();
+  const previous = repeatHits.get(ip);
+  const sameWindow = previous
+    && previous.key === reaction.key
+    && now - previous.startedAt < REPEAT_RATE.windowMs;
+  const count = Math.max(
+    sameWindow ? previous.count + 1 : 1,
+    recentHistoryRepeatCount(message, history, now),
+  );
+  const entry = {
+    key: reaction.key,
+    count,
+    startedAt: sameWindow ? previous.startedAt : now,
+    lastSeen: now,
+  };
+  repeatHits.set(ip, entry);
+
+  if (repeatHits.size > 5_000) {
+    const oldest = [...repeatHits.entries()]
+      .sort(([, a], [, b]) => a.lastSeen - b.lastSeen)
+      .slice(0, repeatHits.size - 4_000);
+    for (const [key] of oldest) repeatHits.delete(key);
+  }
+
+  if (count > REPEAT_RATE.max) {
+    const retryAfter = Math.max(
+      1,
+      Math.ceil((REPEAT_RATE.windowMs - (now - entry.startedAt)) / 1_000),
+    );
+    return { limited: true, count, retryAfter };
+  }
+  return { limited: false, count };
 }
 
 function rateLimit(ip) {
@@ -159,6 +227,7 @@ function parseInput(raw) {
           user: String(item?.user ?? "").slice(0, LIMITS.historyFieldChars),
           jeff: String(item?.jeff ?? "").slice(0, LIMITS.historyFieldChars),
           ...(typeof item?.mode === "string" ? { mode: item.mode.slice(0, 40) } : {}),
+          ...(Number.isFinite(item?.at) ? { at: item.at } : {}),
         }))
         .filter((item) => item.user && item.jeff)
     : [];
@@ -257,7 +326,8 @@ export default async function handler(req, res) {
       throw new PublicError(415, "Content-Type must be application/json.", { code: "unsupported_media_type" });
     }
 
-    const limit = rateLimit(clientIp(req));
+    const ip = clientIp(req);
+    const limit = rateLimit(ip);
     if (limit.limited) {
       throw new PublicError(429, "Slow down. Jeff is napping.", {
         code: "rate_limited",
@@ -266,10 +336,18 @@ export default async function handler(req, res) {
     }
 
     const { message, history } = parseInput(await readBody(req));
+    const repeatLimit = repeatRateLimit(ip, message, history);
+    if (repeatLimit.limited) {
+      throw new PublicError(429, "You've said that enough. Bring something new in a minute.", {
+        code: "repeat_spam",
+        retryAfter: repeatLimit.retryAfter,
+      });
+    }
     const apiKey = process.env.TYPESAFE_API_KEY;
     const result = await runEngineTurn({
       message,
       history,
+      repeatCount: repeatLimit.count,
       callJev: (state, questions) => {
         if (!apiKey) {
           throw new PublicError(503, "Jeff is not configured yet.", { code: "not_configured" });

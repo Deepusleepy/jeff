@@ -587,7 +587,7 @@
  {
   "id": "reactions_lol",
   "category": "reaction",
-  "text": "Damn, huh? Glad one of us is entertained."
+  "text": "Glad one of us is entertained."
  },
  {
   "id": "reactions_ok",
@@ -612,7 +612,12 @@
  {
   "id": "reactions_bruh",
   "category": "reaction",
-  "text": "Bruh? Indeed. Bruh."
+  "text": "Bruh received. Conversation still pending."
+ },
+ {
+  "id": "reactions_huh",
+  "category": "reaction",
+  "text": "You sent 'huh' and expected me to do the heavy lifting."
  },
  {
   "id": "reactions_hmm",
@@ -788,9 +793,9 @@
   "text": "Who wins tonight? The team that scores more points. Sports analysis complete, no charge."
  },
  {
-  "id": "reactions_lol2",
+  "id": "reactions_repeat",
   "category": "reaction",
-  "text": "LOL twice? Careful, you'll inflate my ego past its size limit."
+  "text": "If you've got nothing new to say, stop spending my credits one syllable at a time."
  },
  {
   "id": "fu_generic",
